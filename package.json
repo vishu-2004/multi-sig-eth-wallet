@@ -1,5 +1,5 @@
 {
-  "name": "ethereum-wallet",
+  "name": "multi-sig-eth-wallet",
   "type": "commonjs",
   "devDependencies": {
     "hardhat": "^2.24.3"
