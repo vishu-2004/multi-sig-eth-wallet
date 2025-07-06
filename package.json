@@ -1,0 +1,12 @@
+{
+  "name": "ethereum-wallet",
+  "type": "commonjs",
+  "devDependencies": {
+    "hardhat": "^2.24.3"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.0.0",
+    "chai": "^4.3.7",
+    "dotenv": "^16.5.0"
+  }
+}
