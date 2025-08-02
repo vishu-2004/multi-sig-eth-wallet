@@ -4,35 +4,61 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import walletTransactionRoutes from './routes/walletTransactionRoutes.js';
 import { ethers } from 'ethers';
-import factoryABI from './abi/MultiSigFactory.json' assert { type: 'json' };
+import { createRequire } from 'module';
 import listenToFactoryEvents from './listeners/walletFactoryListener.js';
 import bootstrapWalletListeners from './utils/bootstrapListener.js';
+
+// Create require function for JSON imports
+const require = createRequire(import.meta.url);
+const factoryABI = require('./abi/MultiSigFactory.json');
 
 dotenv.config();
 
 const app = express();
 let provider;
+
 if (process.env.PROD === "false") {
     provider = new ethers.JsonRpcProvider("http://localhost:8545");
 } else {
     provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
 }
 
-const factory = new ethers.Contract(
-    process.env.CONTRACT_ADDRESS,
-    factoryABI,
-    provider
-);
+// Debug ABI
+console.log("=== ABI DEBUG INFO ===");
+const abiToUse = factoryABI.abi || factoryABI;
+console.log("ABI length:", abiToUse.length);
+console.log("First few ABI entries:", abiToUse.slice(0, 3));
 
+// Create factory contract (moved outside try block)
+let factory;
+try {
+    factory = new ethers.Contract(
+        process.env.CONTRACT_ADDRESS,
+        abiToUse,
+        provider
+    );
+    
+    console.log("Contract created successfully");
+    console.log("Interface exists:", !!factory.interface);
+    
+    if (factory.interface && factory.interface.functions) {
+        console.log("Available functions:", Object.keys(factory.interface.functions));
+    } else {
+        console.log("No interface.functions available");
+        console.log("Interface format fragments:", factory.interface.format());
+    }
+} catch (error) {
+    console.error("Error creating contract:", error);
+    process.exit(1);
+}
 
-bootstrapWalletListeners(provider); // Re-attaches listeners on restart
+// Now factory is accessible here
+bootstrapWalletListeners(provider); 
 listenToFactoryEvents(factory, provider);
-
 
 app.use(cors());
 app.use(express.json());
 app.use('/api', walletTransactionRoutes);
 
 await mongoose.connect(process.env.MONGO_URI);
-
 app.listen(5000, () => console.log('Server running on port 5000'));
