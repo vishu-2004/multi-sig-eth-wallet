@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const transactionSchema = new mongoose.Schema({
 walletAddress:{type:String, required:true},
-  transactionId: { type: Number, unique: true, required: true },
+  transactionId: { type: Number, required: true },
   destination: { type: String, required: true },
   value: { type: Number, required: true },
   approvals: { type: Number, required: true },

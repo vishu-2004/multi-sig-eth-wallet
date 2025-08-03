@@ -5,7 +5,7 @@ const userActivitySchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    activity: {
+    activityType: {
         type: String,
         required: true
     },
@@ -14,7 +14,7 @@ const userActivitySchema = new mongoose.Schema({
         default: () => Math.floor(Date.now() / 1000) 
     },
     walletAddress:{type:String, required:true},
-  transactionId: { type: Number, unique: true, required: true },
+  transactionId: { type: Number, required: true },
 });
 
 export default mongoose.model("UserActivity", userActivitySchema);

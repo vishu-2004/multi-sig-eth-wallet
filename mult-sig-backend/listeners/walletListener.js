@@ -35,10 +35,10 @@ export default function listenToWallet(walletAddress, provider) {
             console.log("Transaction saved to DB ✅");
 
         }catch(err){
-            console.log("Error occured in tr submission");
+            console.log("Error occured in tr submission",err);
         }
 
-        //update user activity
+        //track user activity
         try{
 
 
@@ -46,13 +46,13 @@ export default function listenToWallet(walletAddress, provider) {
             userAddress:submitter,
             activityType: "Transaction Submitted",
             timestamp:Math.floor(Date.now() / 1000),
-            transactionId:tx_id,
+            transactionId:Number(tx_id),
             walletAddress:walletAddress
         })
         await newActivity.save();
         console.log("Submit activity tracked");
         }catch(err){
-            console.log("Error occured in tr activity saving");
+            console.log("Error occured in tr activity saving",err);
         }
        
 
@@ -76,7 +76,7 @@ export default function listenToWallet(walletAddress, provider) {
                     approvedBy: approver
                 }
             },
-            {new:true}
+            {new:true,upsert:true}
         
         )
         if(updatedTx){
@@ -99,23 +99,20 @@ export default function listenToWallet(walletAddress, provider) {
             walletAddress:walletAddress
         })
         await newActivity.save();
-        console.log("Submit activity tracked");
+        console.log("Approve activity tracked");
         }catch(err){
-            console.log("Error occured in tr, approved activity saving");
+            console.log("Error occured in tr, approved activity saving",err);
         }
 
     })
 
-    walletContract.on("TransactionExecuted", async (tx_id, executer) => {
-    console.log(`Transaction executed by ${executer} with id ${tx_id}`);
-
-    try {
+    walletContract.on("TransactionExecuted", async (tx_id, executer, event) => {
+        console.log(`Transaction executed by ${executer} with id ${tx_id}`);
         const tx = await walletContract.transactions(tx_id);
-        const submittedTx = await provider.getTransaction(tx_id); // getTransaction hash
-
-        const receipt = await provider.getTransactionReceipt(submittedTx.hash);
-        const block = await provider.getBlock(receipt.blockNumber);
-        const executionTimestamp = block.timestamp;
+         const block = await provider.getBlock(event.blockNumber);
+    const executionTimestamp = block.timestamp;
+    try {
+        
 
         const updatedTx = await Transaction.findOneAndUpdate(
             {
@@ -132,7 +129,7 @@ export default function listenToWallet(walletAddress, provider) {
             { new: true }
         );
 
-        console.log("Updated Transaction after execution:", updatedTx);
+        console.log("Updated Transaction after execution success:", updatedTx);
     } catch (err) {
         console.log("Error occurred in tr execution:", err);
     }
@@ -142,14 +139,14 @@ export default function listenToWallet(walletAddress, provider) {
             const newActivity = new userActivity({
             userAddress:executer,
             activityType: "Transaction Executed",
-            timestamp:Math.floor(Date.now() / 1000),
+            timestamp:Number(executionTimestamp),
             transactionId:Number(tx_id),
             walletAddress:walletAddress
         })
         await newActivity.save();
         console.log("Execution activity tracked");
         }catch(err){
-            console.log("Error occured in tr, execute activity saving");
+            console.log("Error occured in tr, execute activity saving",err);
         }
 });
 
@@ -166,7 +163,7 @@ walletContract.on("ApprovalRevoked", async (tx_id, revoker) => {
             },
             {
                 $set: {
-                    approvals: tx.approvals
+                    approvals: Number(tx.approvals)
                 },
                 $pull: {
                     approvedBy: revoker
@@ -175,7 +172,7 @@ walletContract.on("ApprovalRevoked", async (tx_id, revoker) => {
             { new: true }
         );
 
-        console.log("Updated Transaction after revocation:", updatedTx);
+        console.log("Updated Transaction after revocation success:", updatedTx);
     } catch (err) {
         console.log("Error occurred in tr revocation:", err);
     }
@@ -191,7 +188,7 @@ walletContract.on("ApprovalRevoked", async (tx_id, revoker) => {
         await newActivity.save();
         console.log("revoke activity tracked");
         }catch(err){
-            console.log("Error occured in tr, revoke activity saving");
+            console.log("Error occured in tr, revoke activity saving",err);
         }
 });
 

@@ -18,16 +18,16 @@ const app = express();
 let provider;
 
 if (process.env.PROD === "false") {
-    provider = new ethers.JsonRpcProvider("http://localhost:8545");
+    provider = new ethers.WebSocketProvider("http://localhost:8545");
 } else {
-    provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+    provider = new ethers.WebSocketProvider(process.env.SEPOLIA_RPC_URL);
 }
 
-// Debug ABI
-console.log("=== ABI DEBUG INFO ===");
+// // Debug ABI
+// console.log("=== ABI DEBUG INFO ===");
 const abiToUse = factoryABI.abi || factoryABI;
-console.log("ABI length:", abiToUse.length);
-console.log("First few ABI entries:", abiToUse.slice(0, 3));
+// console.log("ABI length:", abiToUse.length);
+// console.log("First few ABI entries:", abiToUse.slice(0, 3));
 
 // Create factory contract (moved outside try block)
 let factory;
@@ -38,15 +38,15 @@ try {
         provider
     );
     
-    console.log("Contract created successfully");
-    console.log("Interface exists:", !!factory.interface);
+    // console.log("Contract created successfully");
+    // console.log("Interface exists:", !!factory.interface);
     
-    if (factory.interface && factory.interface.functions) {
-        console.log("Available functions:", Object.keys(factory.interface.functions));
-    } else {
-        console.log("No interface.functions available");
-        console.log("Interface format fragments:", factory.interface.format());
-    }
+    // if (factory.interface && factory.interface.functions) {
+    //     console.log("Available functions:", Object.keys(factory.interface.functions));
+    // } else {
+    //     console.log("No interface.functions available");
+    //     console.log("Interface format fragments:", factory.interface.format());
+    // }
 } catch (error) {
     console.error("Error creating contract:", error);
     process.exit(1);
