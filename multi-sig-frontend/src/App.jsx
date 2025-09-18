@@ -1,18 +1,22 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import "./App.css"
 import '@rainbow-me/rainbowkit/styles.css';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-
-
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import HomePage from './pages/HomePage';
+import CreateWallet from './pages/CreateWallet';
+import WalletPage from './pages/WalletPage';
 function App() {
   
 
   return (
-    <div className='flex'><p className='text-amber-700 text-7xl'>hiiiiiiiii</p>
-      <ConnectButton/>
-    </div>
+    <Router>
+      <Routes>
+        <Route path='/' element={<HomePage/>} />
+        <Route path='/create-wallet' element={<CreateWallet/>}/>
+        <Route path='/wallet-page' element={<WalletPage/>}/>
+      </Routes>
+    </Router>
+    
   )
 }
 

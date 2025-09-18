@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* Optional: define global CSS variables or theme customizations */
+@theme {
+  --font-sans: "Inter", sans-serif;
+}
+
+/* Apply the Inter font globally */
+body {
+  font-family: var(--font-sans);
+}
