@@ -5,6 +5,7 @@ import { useAccount, useBalance } from "wagmi"; // OPTIONAL: will show real bala
 import { Copy, ExternalLink, X } from "lucide-react"; // NEW (icons)
 import { formatEther } from "viem";
 import { MdOutlineVerified } from "react-icons/md";
+import ActionModal from "../components/ActionModal";
 
 type Tx = {
   id: string;
@@ -12,7 +13,7 @@ type Tx = {
   value: string;
   to: string;
   data?: string;
-  state?: "Pending" | "Approved";
+  state?: "Pending" | "Approved" | "Executed";
 };
 
 export default function WalletPage() {
@@ -27,12 +28,16 @@ export default function WalletPage() {
   ]);
 
   const compactAddress = `${address}`;
+  const compactAddress2 = address
+    ? `${address.slice(0, 6)}....${address.slice(-6)}`
+    : "";
+
 
 
   // dummy transactions initially (you said use dummy data)
   const [txs, setTxs] = useState<Tx[]>([
-    { id: "tx-01", approvals: "0/2", value: "0.5 ETH", to: "0x1f...1fCa", data: "0x", state: "Pending" },
-    { id: "tx-02", approvals: "1/2", value: "0.1 ETH", to: "0xab...cD3", data: "0x", state: "Pending" },
+    { id: "tx-01", approvals: "0/2", value: "0.5 ETH", to: "0x1349345f567589215640AbCDb0bB2860d15E77dc", data: "0x", state: "Pending" },
+    { id: "tx-02", approvals: "1/2", value: "0.1 ETH", to: "0x1349345f567589215640AbCDb0bB2860d15E77dc", data: "0x", state: "Pending" },
   ]); // NEW
 
   // form fields for new transaction
@@ -43,6 +48,8 @@ export default function WalletPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false); // NEW - blocks UI when true
   const [txModal, setTxModal] = useState<{ open: boolean; txId?: string }>({ open: false }); // NEW
   const [etherscanLink] = useState("https://etherscan.io/address/0x123..."); // example
+  const [approvalsRequired, setApprovalRequired] = useState(2);
+  const [modal, setModal] = useState<{ open: boolean; txId?: string; action?: "approve" | "revoke" | "execute" }>({ open: false });
 
 
   // helper: shorten address like 0xA2aE...b23C
@@ -50,6 +57,62 @@ export default function WalletPage() {
     if (!addr) return "";
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
+
+  //MARK:app,re,exe
+  const approveTransaction = async (txId: string) => {
+    setIsLoading(true);
+    await new Promise((r) => setTimeout(r, 1500)); // simulate delay
+    setTxs((prev) =>
+      prev.map((t) =>
+        t.id === txId
+          ? { ...t, approvals: incrementApproval(t.approvals), state: "Approved" }
+          : t
+      )
+    );
+    setIsLoading(false);
+    setModal({ open: false });
+  };
+
+  // helper to increment approvals "1/2" -> "2/2"
+  const incrementApproval = (a: string) => {
+    const [c, total] = a.split("/").map(Number);
+    return `${c + 1}/${total}`;
+  };
+
+  const revokeTransaction = async (txId: string) => {
+    setIsLoading(true);
+    await new Promise((r) => setTimeout(r, 1500));
+    setTxs((prev) =>
+      prev.map((t) =>
+        t.id === txId
+          ? { ...t, approvals: decrementApproval(t.approvals), state: "Pending" }
+          : t
+      )
+    );
+    setIsLoading(false);
+    setModal({ open: false });
+  };
+
+
+  const decrementApproval = (a: string) => {
+    const [c, total] = a.split("/").map(Number);
+    return `${Math.max(0, c - 1)}/${total}`;
+  };
+
+  const executeTransaction = async (txId: string) => {
+    setIsLoading(true);
+    await new Promise((r) => setTimeout(r, 1500));
+    setTxs((prev) =>
+      prev.map((t) =>
+        t.id === txId
+          ? { ...t, state: "Executed" }
+          : t
+      )
+    );
+    setIsLoading(false);
+    setModal({ open: false });
+  };
+
 
   // submit tx (simulated)
   const submitTx = async () => {
@@ -89,10 +152,20 @@ export default function WalletPage() {
   return (
     <div className={`min-h-screen p-6 md:p-12 bg-black text-white relative`}>
       {/* TOP: wallet address + balance box */}
+      <div className="flex mb-6 mr-18 justify-center">
+        <div className="relative inline-flex">
+          <span className="bg-neutral-900 text-center font-semibold rounded-r-none text-sm text-white rounded-4xl pt-2.5 px-4 pr-22 py-2.5">{balance ? `${parseFloat(formatEther(balance.value)).toFixed(3)}` : "0.000"}</span>
+          <div className="bg-green-400 absolute left-17 gap-3 items-center inline-flex rounded-4xl px-4 py-1">
+            <span className=" text-black text-sm font-mono font-semibold ">{compactAddress2}</span>
+            <Blockies seed={(address || owners[0]).toLowerCase()} size={10} scale={3} className="rounded-full" />
+          </div>
+
+        </div>
+      </div>
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 ">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 ">
           {/* Left: Wallet address box */}
-          <div className="col-span-2 ">
+          <div className="col-span-3 ">
             <div className="bg-neutral-900 rounded-md p-4 flex-1  gap-4">
               <div className="flex-1 items-center justify-center">
                 <div className="text-sm text-center text-gray-400">Your VaultX Wallet Address</div>
@@ -100,7 +173,7 @@ export default function WalletPage() {
 
                   <div className=" inline-flex items-center   gap-3 bg-black border border-neutral-800 rounded-md px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <Blockies seed={(address || owners[0]).toLowerCase()} size={8} scale={3} className="rounded-full" />
+
                       <div className="font-mono text-sm">{compactAddress}</div>
                     </div>
 
@@ -135,7 +208,7 @@ export default function WalletPage() {
             <div className="flex-row grid grid-cols-1 lg:grid-cols-2 mt-3 gap-2">
               <div className="col-span-1 ">
                 <div className="bg-neutral-900 rounded-md p-6">
-                  <h3 className="text-lg font-semibold mb-4">Owners</h3>
+                  <h3 className="text-lg font-semibold mb-4">Other Owners</h3>
                   <div className="space-y-3">
                     {owners.map((o, i) => (
                       <div key={o} className="flex items-center gap-3 bg-black border border-neutral-800 rounded-md px-3 py-3">
@@ -153,15 +226,16 @@ export default function WalletPage() {
               <div className="col-span-1">
                 <div className="bg-neutral-900 rounded-md p-4">
                   <div className="text-sm text-gray-400 mb-4">Wallet Balance</div>
-                  <div className="text-2xl mt-6 md:text-3xl font-bold text-green-400">{balance ? `${formatEther(balance.value)} ETH` : "Loading..."}
+                  <div className="text-2xl mt-6 md:text-3xl font-bold text-green-400">{balance ? `${parseFloat(formatEther(balance.value)).toFixed(3)}` : "0.000"}
+
                   </div>
                   <div className="mt-8 mb-4 flex gap-2">
                     <input
                       type="text"
-                      placeholder="value in ETH"
+                      placeholder="  value in ETH"
                       value={""}
                       onChange={() => { }}
-                      className="flex-1 bg-black border border-neutral-800 rounded-md px-3 py-2 text-white placeholder:text-gray-500"
+                      className="flex-1 bg-black border border-neutral-800 rounded-md pl-1 py-2 text-white placeholder:text-gray-500"
                       disabled
                     />
                     <button className="px-3 rounded-md border border-neutral-700 text-green-400 hover:bg-green-400 hover:text-black transition">
@@ -186,7 +260,7 @@ export default function WalletPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400">value</label>
+                  <label className="text-sm text-gray-400">Value</label>
                   <input
                     type="text"
                     placeholder="value in ETH"
@@ -208,15 +282,15 @@ export default function WalletPage() {
               </div>
             </div>
           </div>
-          <div className="col-span-1 lg:col-span-1">
+          <div className="col-span-1 lg:col-span-2">
             <div className="bg-neutral-900 rounded-md p-6">
               <h3 className="text-lg font-semibold mb-4">Wallet Transactions</h3>
 
               {/* Table header (approvals/value/to/data/states) */}
-              <div className="hidden md:grid grid-cols-5 gap-4 text-gray-400 text-sm mb-3">
+              <div className="hidden md:grid grid-cols-5 gap-5 text-gray-400 text-sm mb-3">
                 <div>Approvals</div>
-                <div>Value</div>
-                <div>To</div>
+                <div className="ml-2">Value</div>
+                <div className="ml-4">To</div>
                 <div>Data</div>
                 <div>States</div>
               </div>
@@ -225,13 +299,37 @@ export default function WalletPage() {
               <div className="space-y-3">
                 {txs.map((t) => (
                   <div key={t.id} className="bg-black border border-neutral-800 rounded-md p-3 flex items-center gap-3">
-                    <div className="w-20 text-sm text-gray-300">{t.approvals}</div>
-                    <div className="w-24 text-sm">{t.value}</div>
-                    <div className="flex-1 font-mono text-sm truncate">{t.to}</div>
-                    <div className="w-12 text-sm">{t.data}</div>
+                    <div className="w-18 text-sm text-gray-300">{t.approvals}</div>
+                    <div className="w-20 text-sm">{t.value}</div>
+                    <div className="  text-sm ">{`${t.to.slice(0,5)}...${t.to.slice(-5)}`}</div>
+                    <div className="w-12 text-center text-sm">{t.data}</div>
                     <div className="w-28 flex items-center justify-end gap-3">
-                      <button className="px-3 py-1 rounded-md bg-green-400 text-black font-semibold hover:bg-green-500">Approve</button>
+                      {t.state === "Executed" ? (
+                        <span className="text-green-400 text-sm font-semibold">Executed</span>
+                      ) : t.state === "Approved" && parseInt(t.approvals.split("/")[0]) === approvalsRequired ? (
+                        <button
+                          className="px-2 py-1 rounded-md bg-green-400 text-black text-sm font-semibold hover:bg-green-600"
+                          onClick={() => setModal({ open: true, txId: t.id, action: "execute" })}
+                        >
+                          Execute
+                        </button>
+                      ) : t.state === "Approved" ? (
+                        <button
+                          className="px-3 py-1 rounded-md bg-red-400 text-black text-sm font-semibold hover:bg-red-500"
+                          onClick={() => setModal({ open: true, txId: t.id, action: "revoke" })}
+                        >
+                          Revoke
+                        </button>
+                      ) : (
+                        <button
+                          className="px-2 py-1 rounded-md bg-green-400 text-black text-sm font-semibold hover:bg-green-500"
+                          onClick={() => setModal({ open: true, txId: t.id, action: "approve" })}
+                        >
+                          Approve
+                        </button>
+                      )}
                     </div>
+
                   </div>
                 ))}
               </div>
@@ -241,20 +339,8 @@ export default function WalletPage() {
 
         </div>
 
-        {/* MAIN GRID: Owners (left) + Transactions (right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* Owners (left column) */}
 
 
-          {/* Center: Wallet Balance box (already above) - leave placeholder so layout resembles screenshot */}
-          <div className="col-span-1">
-            {/* Keep blank to match layout spacing; we already show balance on top */}
-            <div className="bg-transparent h-full" />
-          </div>
-
-          {/* Right: Wallet Transactions (occupies two-thirds on wide screens) */}
-
-        </div>
 
 
       </div>
@@ -307,6 +393,23 @@ export default function WalletPage() {
           </div>
         </div>
       )}
+
+      <ActionModal
+        open={modal.open}
+        onClose={() => setModal({ open: false })}
+        onConfirm={() => {
+          if (!modal.txId) return;
+          if(modal.action === "approve" || modal.action === "execute" || modal.action === "revoke"){
+            setModal({open:false})
+          }
+          if (modal.action === "approve") approveTransaction(modal.txId);
+          if (modal.action === "revoke") revokeTransaction(modal.txId);
+          if (modal.action === "execute") executeTransaction(modal.txId);
+        }}
+        title={modal.action === "approve" ? "Approve Transaction" : modal.action === "revoke" ? "Revoke Approval" : "Execute Transaction"}
+        body={`Are you sure you want to ${modal.action} this transaction?`}
+      />
+
     </div>
   );
 }

@@ -75,7 +75,7 @@ const CreateWallet = () => {
       <div className="flex-1 bg-neutral-900 rounded-xl p-6 md:p-10 shadow-lg">
         {/* Header + Progress */}
         <h1 className="text-2xl md:text-3xl font-bold mb-6">
-          Create new VaultX Account
+          Create new VaultX Wallet
         </h1>
 
         <div className="mb-6">
@@ -99,7 +99,7 @@ const CreateWallet = () => {
                 Set up the basics
               </p>
               <p className="text-gray-400 text-sm mt-1">
-                Give a name to your account and select which networks to deploy
+                Give a name to your wallet and select which networks to deploy
                 it on.
               </p>
             </div>
@@ -112,7 +112,7 @@ const CreateWallet = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full bg-black border border-neutral-700 rounded-md p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
-                placeholder="Enter account name"
+                placeholder="Enter wallet name"
               />
             </div>
 
@@ -153,7 +153,7 @@ const CreateWallet = () => {
                 Signers and confirmations
               </p>
               <p className="text-gray-400 text-sm mt-1">
-                Set the signer wallets of your VaultX Account and how many need
+                Set the signers of your VaultX Wallet and how many need
                 to confirm to execute a valid transaction.
               </p>
             </div>
@@ -177,7 +177,7 @@ const CreateWallet = () => {
                     />
                     {index === 0 && (
                       <p className="text-xs text-gray-500 mt-1">
-                        Your connected wallet
+                        Your connected account
                       </p>
                     )}
                   </div>
@@ -388,7 +388,7 @@ const CreateWallet = () => {
           </div>
 
           <h2 className="text-lg font-bold mb-4">
-            Your VaultX Account preview
+            Your VaultX Wallet preview
           </h2>
 
           <div className="space-y-3 text-sm">
