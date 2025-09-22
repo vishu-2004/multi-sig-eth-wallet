@@ -10,7 +10,7 @@ export default function HomePage() {
   
   useEffect(() => {
     if (isConnected) {
-      navigate("/create-wallet");   // auto redirect if already connected
+      navigate("/user-wallets");   // auto redirect if already connected
     }
   }, [isConnected, navigate]);
   
