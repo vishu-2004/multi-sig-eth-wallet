@@ -3,13 +3,20 @@ import { useState, useEffect } from "react"; // NEW
 import Blockies from "react-blockies";
 import { useAccount } from "wagmi";
 import { FiTrash2 } from "react-icons/fi"; // feather-style trash icon
+import { getWriteWalletFactoryContract } from "../../utils/contract";
+import { ethers } from "ethers";
+import ActionModal from "../components/ActionModal";
+import { useNavigate } from "react-router-dom";
 
 const CreateWallet = () => {
   // NEW: step state (1 → basics, 2 → signers, 3 → placeholder)
   const [step, setStep] = useState(1);
-
+  const navigate = useNavigate();
   const [name, setName] = useState("Fun Sepolia VaultX");
   const { address } = useAccount(); // connected wallet address
+  const [isLoading,setIsLoading]  = useState(false);
+  const [isModalOpen,setIsModalOpen] = useState(false);
+  const [walletAddress,setWalletAddress] = useState("0x");
 
   // NEW: signers state (first signer is the connected wallet)
 
@@ -39,6 +46,45 @@ const CreateWallet = () => {
 
   // NEW: handlers for signer list
 
+
+  const handleCreateWallet = async () => {
+    setIsLoading(true);
+    try {
+      const factory = await getWriteWalletFactoryContract();
+      const owners = signers.map(s => s.address);
+      const tx = await factory.createWallet(owners, threshold, timelock);
+      const receipt = await tx.wait();
+
+      const walletCreatedEvent = factory.interface.parseLog(
+        receipt.logs.find(log =>
+            log.topics[0] === factory.interface.getEvent('WalletCreated').topicHash
+        )
+    );
+
+    
+      if (walletCreatedEvent) {
+        const walletAddress = walletCreatedEvent.args.walletAddress;
+        setWalletAddress(walletAddress);
+        console.log("Created wallet address:", walletAddress);
+        // Save timelock in localStorage with walletAddress as key
+        localStorage.setItem(walletAddress, timelock.toString());
+        setIsModalOpen(true);
+        setSigners([
+    { name: "Signer 1", address: address || "" },
+  ])
+  setTimelock(0);
+  setThreshold(1);
+
+
+      } else {
+        console.error("WalletCreated event not found");
+      }
+    } catch (error) {
+      console.error("Error creating wallet:", error);
+    }finally{
+      setIsLoading(false);
+    }
+  }
   const updateSignerName = (id, value) =>
     setSigners((prev) =>
       prev.map((s) => (s.id === id ? { ...s, name: value } : s))
@@ -365,10 +411,10 @@ const CreateWallet = () => {
                 Back
               </button>
               <button
-                onClick={() => handleDeploy()}
+                onClick={handleCreateWallet}
                 className="px-6 py-2 rounded-md bg-green-400 text-black font-semibold hover:bg-green-500 transition"
               >
-                Create account
+                Create wallet
               </button>
             </div>
           </div>
@@ -415,7 +461,50 @@ const CreateWallet = () => {
           </div>
         </div>
       </div>
+      {isLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-auto">
+          <div className="absolute inset-0 bg-black/70" />
+
+          {/* Green circular spinner */}
+          <div className="relative z-10 flex flex-col items-center gap-4">
+            <svg
+              className="animate-spin"
+              width="56"
+              height="56"
+              viewBox="0 0 50 50"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="25" cy="25" r="20" stroke="#064e3b" strokeWidth="6" opacity="0.2" />
+              <path
+                d="M45 25a20 20 0 0 1-20 20"
+                stroke="#22c55e"
+                strokeWidth="6"
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="text-green-400 font-medium">Processing transaction...</div>
+          </div>
+        </div>
+      )}
+      <ActionModal
+              open={isModalOpen}
+              onClose={() =>{
+                setIsModalOpen(false);
+                navigate(`/wallet-page/${walletAddress}`);
+
+              } }
+              onConfirm={() => {
+                setIsModalOpen(false);
+                navigate(`/wallet-page/${walletAddress}`);
+
+                
+              }}
+              title="Success"
+              body="Wallet created successfully!"
+            />
     </div>
+    
   );
 };
 

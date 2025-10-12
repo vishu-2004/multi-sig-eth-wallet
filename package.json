@@ -5,6 +5,10 @@
     "hardhat": "^2.24.3",
     "hardhat-deploy": "^1.0.4"
   },
+  "scripts": {
+        "deploy:local": "hardhat run scripts/deploy.cjs --network localhost"
+
+  },
   "dependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.0.0",
     "chai": "^4.3.7",

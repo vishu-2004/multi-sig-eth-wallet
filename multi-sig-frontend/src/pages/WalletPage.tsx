@@ -1,44 +1,118 @@
 // WallletPage.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Blockies from "react-blockies"; // NEW
 import { useAccount, useBalance } from "wagmi"; // OPTIONAL: will show real balance if your wagmi/provider is configured
 import { Copy, ExternalLink, X } from "lucide-react"; // NEW (icons)
 import { formatEther } from "viem";
 import { MdOutlineVerified } from "react-icons/md";
 import ActionModal from "../components/ActionModal";
+import { useParams, useNavigate } from "react-router";
+import { getWalletContract } from "../../utils/contract";
+import { ethers } from "ethers";
 
 type Tx = {
   id: string;
   approvals: string;
   value: string;
-  to: string;
+  destination: string;
   data?: string;
-  state?: "Pending" | "Approved" | "Executed";
+  state: "Pending" | "Approved" | "Executed";
 };
 
 export default function WalletPage() {
   const { address, isConnected } = useAccount(); // ✅ wagmi address
   const { data: balance } = useBalance({ address });
-
-
+  const {walletAddress} = useParams();
+  const navigate = useNavigate();
+  const [walletContract, setWalletContract] = useState<any>(null);
+  const [etherscanLink,setEtherScanLink] = useState("https://etherscan.io"); // example
+const [walletBalance, setWalletBalance] = useState("0");
   // --- page state
-  const [owners] = useState<string[]>([
-    "0x5e6b84251a27...43248b6c3ffb", // ✅ keep as extra dummy owner
-    "0x1f28d959c57...625ae8291fca",
+  const [owners,setOwners] = useState<string[]>([
+    
   ]);
 
-  const compactAddress = `${address}`;
+  const fetchTransactions = async (contract: any) => {
+    try {
+      const count = Number(await contract.getTransactionCount());
+      const threshold = Number(await contract.getThreshold());
+      setApprovalRequired(threshold);
+      const txList: Tx[] = [];
+      for (let i = 0; i < count; i++) {
+        const [destination, value, data, approvals, executed] = await contract.getTransactionDetails(i);
+        let state: "Pending" | "Approved" | "Executed" = executed ? "Executed" : Number(approvals) >= threshold ? "Approved" : "Pending";
+        if (isConnected) {
+          const provider = new ethers.BrowserProvider((window as any).ethereum);
+          const signer = await provider.getSigner();
+          const isAlreadyapproved = await contract.isApproved(i, signer.address);
+          if (isAlreadyapproved && state === "Pending") {
+            state = "Approved";
+          }
+        }
+        console.log("State:", state);
+        txList.push({
+          id: i.toString(),
+          approvals: `${Number(approvals)}/${threshold}`,
+          value: ethers.formatEther(value),
+          destination,
+          data: data || "0x",
+          state,
+        });
+      }
+      setTxs(txList);
+    } catch (err) {
+      console.error("Error fetching transactions:", err);
+    }
+  };
+
+  // Add navigation on transaction row click
+  const onTransactionClick = (txId: string) => {
+    if (!walletAddress) return;
+    navigate(`/transaction-details/${walletAddress}/${txId}`);
+  };
+
+ useEffect(() => {
+  if (!walletAddress) return;
+
+  setEtherScanLink(`https://etherscan.io/address/${walletAddress}`);
+
+  const initWallet = async () => {
+    try {
+      // Assuming getWalletContract is async
+      const contract = await getWalletContract(walletAddress);
+      setWalletContract(contract);
+
+      // Get wallet balance
+      const provider = new ethers.JsonRpcProvider(); // or your custom provider
+      const balance = await provider.getBalance(walletAddress);
+      setWalletBalance(ethers.formatEther(balance)); // formatted in ETH
+
+      const approvalsReq = await contract.minimumCount();
+      setApprovalsRequired(Number(approvalsReq));
+      const timelock = await contract.timeLockDelay(); // assuming public uint timelock
+      // store as number in state, key = walletAddress
+      setTimelock( Number(timelock));
+      const ownersList = await contract.getOwners();
+      setOwners(ownersList);
+
+      // Fetch transactions
+      await fetchTransactions(contract);
+    } catch (err) {
+      console.error("Error initializing wallet:", err);
+    }
+  };
+
+  initWallet();
+}, [walletAddress,address]);
+
+  const compactAddress = `${walletAddress}`;
   const compactAddress2 = address
     ? `${address.slice(0, 6)}....${address.slice(-6)}`
     : "";
 
 
 
-  // dummy transactions initially (you said use dummy data)
-  const [txs, setTxs] = useState<Tx[]>([
-    { id: "tx-01", approvals: "0/2", value: "0.5 ETH", to: "0x1349345f567589215640AbCDb0bB2860d15E77dc", data: "0x", state: "Pending" },
-    { id: "tx-02", approvals: "1/2", value: "0.1 ETH", to: "0x1349345f567589215640AbCDb0bB2860d15E77dc", data: "0x", state: "Pending" },
-  ]); // NEW
+  const [txs, setTxs] = useState<Tx[]>([]); // NEW
 
   // form fields for new transaction
   const [toAddress, setToAddress] = useState<string>("");
@@ -47,9 +121,13 @@ export default function WalletPage() {
   // loading & notification
   const [isLoading, setIsLoading] = useState<boolean>(false); // NEW - blocks UI when true
   const [txModal, setTxModal] = useState<{ open: boolean; txId?: string }>({ open: false }); // NEW
-  const [etherscanLink] = useState("https://etherscan.io/address/0x123..."); // example
   const [approvalsRequired, setApprovalRequired] = useState(2);
   const [modal, setModal] = useState<{ open: boolean; txId?: string; action?: "approve" | "revoke" | "execute" }>({ open: false });
+  const [depositAmount, setDepositAmount] = useState<string>("");
+  const [depositedAmount, setDepositedAmount] = useState<string>("");
+  const [depositSuccessModal, setDepositSuccessModal] = useState(false);
+  const [approvedTxs,setApprovedTxs] = useState<string[]>();
+  const [timeLock,setTimeLock] = useState(0);
 
 
   // helper: shorten address like 0xA2aE...b23C
@@ -60,82 +138,111 @@ export default function WalletPage() {
 
   //MARK:app,re,exe
   const approveTransaction = async (txId: string) => {
+    if (!walletContract) return;
+    
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1500)); // simulate delay
-    setTxs((prev) =>
-      prev.map((t) =>
-        t.id === txId
-          ? { ...t, approvals: incrementApproval(t.approvals), state: "Approved" }
-          : t
-      )
-    );
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contractWithSigner = walletContract.connect(signer);
+      const isAlreadyApproved = await contractWithSigner.isApproved(txId,signer.address);
+
+      const tx = await contractWithSigner.approveTransaction(parseInt(txId));
+      await tx.wait();
+      await fetchTransactions(walletContract);
+    } catch (err) {
+      console.error("Error approving transaction:", err);
+    }
     setIsLoading(false);
     setModal({ open: false });
-  };
-
-  // helper to increment approvals "1/2" -> "2/2"
-  const incrementApproval = (a: string) => {
-    const [c, total] = a.split("/").map(Number);
-    return `${c + 1}/${total}`;
   };
 
   const revokeTransaction = async (txId: string) => {
+    if (!walletContract) return;
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setTxs((prev) =>
-      prev.map((t) =>
-        t.id === txId
-          ? { ...t, approvals: decrementApproval(t.approvals), state: "Pending" }
-          : t
-      )
-    );
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contractWithSigner = walletContract.connect(signer);
+      const tx = await contractWithSigner.revokeApproval(parseInt(txId));
+      await tx.wait();
+      await fetchTransactions(walletContract);
+    } catch (err) {
+      console.error("Error revoking approval:", err);
+    }
     setIsLoading(false);
     setModal({ open: false });
-  };
-
-
-  const decrementApproval = (a: string) => {
-    const [c, total] = a.split("/").map(Number);
-    return `${Math.max(0, c - 1)}/${total}`;
   };
 
   const executeTransaction = async (txId: string) => {
+    if (!walletContract) return;
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setTxs((prev) =>
-      prev.map((t) =>
-        t.id === txId
-          ? { ...t, state: "Executed" }
-          : t
-      )
-    );
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contractWithSigner = walletContract.connect(signer);
+      const tx = await contractWithSigner.executeTransaction(parseInt(txId));
+      await tx.wait();
+      await fetchTransactions(walletContract);
+      const balance = await provider.getBalance(walletAddress);
+      setWalletBalance(ethers.formatEther(balance)); // formatted in ETH
+    } catch (err) {
+      console.error("Error executing transaction:", err);
+    }
     setIsLoading(false);
     setModal({ open: false });
   };
 
 
-  // submit tx (simulated)
+  // submit tx
   const submitTx = async () => {
-    if (!toAddress || !value) return;
-    setIsLoading(true); // NEW: show blocking overlay spinner
-    // simulate network delay
-    await new Promise((r) => setTimeout(r, 1400));
-    const txId = `0x${Math.random().toString(36).slice(2, 10)}`;
-    const newTx: Tx = {
-      id: txId,
-      approvals: "0/2",
-      value: `${value} ETH`,
-      to: toAddress,
-      data: "0x",
-      state: "Pending",
-    };
-    setTxs((s) => [newTx, ...s]);
+    if (!toAddress || !value || !walletContract) return;
+    setIsLoading(true);
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contractWithSigner = walletContract.connect(signer);
+      const tx = await contractWithSigner.submitTransaction(toAddress, ethers.parseEther(value), "0x");
+      await tx.wait();
+      const count = Number(await walletContract.getTransactionCount());
+      const txId = count - 1;
+      await fetchTransactions(walletContract);
+      setTxModal({ open: true, txId: txId.toString() });
+    } catch (err) {
+      console.error("Error submitting transaction:", err);
+    }
     setIsLoading(false);
-    setTxModal({ open: true, txId }); // NEW: show popup with tx id
     // clear form
     setToAddress("");
     setValue("");
   };
+  const handleDeposit = async()=>{
+    if (!walletAddress || !depositAmount) return;
+
+  try {
+    // You need a signer to send transactions
+    const provider = new ethers.BrowserProvider(window.ethereum); // MetaMask
+    const signer = await provider.getSigner();
+
+    // Create transaction
+    const tx = await signer.sendTransaction({
+      to: walletAddress, // contract address
+      value: ethers.parseEther(depositAmount) // convert ETH to wei
+    });
+
+    console.log("Transaction sent:", tx.hash);
+
+    // Wait for confirmation
+    const receipt = await tx.wait();
+    const balance = await provider.getBalance(walletAddress);
+    setWalletBalance(ethers.formatEther(balance));
+    setDepositedAmount(depositAmount);
+    setDepositSuccessModal(true);
+    setDepositAmount("");
+  } catch (err) {
+    console.error("Error sending Ether:", err);
+  }
+  }
 
   const closeModal = () => setTxModal({ open: false });
 
@@ -161,6 +268,15 @@ export default function WalletPage() {
           </div>
 
         </div>
+      </div>
+      {/* Back to User Wallets button */}
+      <div className="flex justify-center mb-6">
+        <button
+          onClick={() => navigate('/user-wallets')}
+          className="px-4 py-2 rounded-md bg-neutral-800 text-white hover:bg-neutral-700 transition"
+        >
+          My Wallets
+        </button>
       </div>
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 ">
@@ -207,11 +323,11 @@ export default function WalletPage() {
 
             <div className="flex-row grid grid-cols-1 lg:grid-cols-2 mt-3 gap-2">
               <div className="col-span-1 ">
-                <div className="bg-neutral-900 rounded-md p-6">
-                  <h3 className="text-lg font-semibold mb-4">Other Owners</h3>
-                  <div className="space-y-3">
+                <div className="bg-neutral-900 rounded-md p-4">
+                  <h3 className="text-lg font-semibold mb-3">Other Owners</h3>
+                  <div className="space-y-1">
                     {owners.map((o, i) => (
-                      <div key={o} className="flex items-center gap-3 bg-black border border-neutral-800 rounded-md px-3 py-3">
+                      <div key={o} className="flex items-center gap-3 bg-black border border-neutral-800 rounded-md px-2 py-2">
                         <Blockies seed={o.toLowerCase()} size={8} scale={3} className="rounded-md" />
                         <div className="flex-1 font-mono text-sm truncate">{shorten(o)}</div>
                         <button className="text-gray-400 hover:text-green-400" onClick={() => copyToClipboard(o)}>
@@ -225,20 +341,19 @@ export default function WalletPage() {
               {/* Right: Wallet Balance box */}
               <div className="col-span-1">
                 <div className="bg-neutral-900 rounded-md p-4">
-                  <div className="text-sm text-gray-400 mb-4">Wallet Balance</div>
-                  <div className="text-2xl mt-6 md:text-3xl font-bold text-green-400">{balance ? `${parseFloat(formatEther(balance.value)).toFixed(3)}` : "0.000"}
+                  <div className="text-sm text-gray-400 mb-5">Wallet Balance</div>
+                  <div className="text-2xl mt-6 md:text-3xl font-bold text-green-400">{walletBalance ? `${walletBalance}` : "0.000"}
 
                   </div>
-                  <div className="mt-8 mb-4 flex gap-2">
+                  <div className="mt-8 mb-4.5 flex gap-2">
                     <input
                       type="text"
                       placeholder="  value in ETH"
-                      value={""}
-                      onChange={() => { }}
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
                       className="flex-1 bg-black border border-neutral-800 rounded-md pl-1 py-2 text-white placeholder:text-gray-500"
-                      disabled
                     />
-                    <button className="px-3 rounded-md border border-neutral-700 text-green-400 hover:bg-green-400 hover:text-black transition">
+                    <button onClick={handleDeposit} className="px-3 rounded-md border border-neutral-700 text-green-400 hover:bg-green-400 hover:text-black transition">
                       Deposit
                     </button>
                   </div>
@@ -286,53 +401,61 @@ export default function WalletPage() {
             <div className="bg-neutral-900 rounded-md p-6">
               <h3 className="text-lg font-semibold mb-4">Wallet Transactions</h3>
 
-              {/* Table header (approvals/value/to/data/states) */}
-              <div className="hidden md:grid grid-cols-5 gap-5 text-gray-400 text-sm mb-3">
-                <div>Approvals</div>
-                <div className="ml-2">Value</div>
-                <div className="ml-4">To</div>
-                <div>Data</div>
-                <div>States</div>
-              </div>
-
-              {/* Transactions list */}
-              <div className="space-y-3">
-                {txs.map((t) => (
-                  <div key={t.id} className="bg-black border border-neutral-800 rounded-md p-3 flex items-center gap-3">
-                    <div className="w-18 text-sm text-gray-300">{t.approvals}</div>
-                    <div className="w-20 text-sm">{t.value}</div>
-                    <div className="  text-sm ">{`${t.to.slice(0,5)}...${t.to.slice(-5)}`}</div>
-                    <div className="w-12 text-center text-sm">{t.data}</div>
-                    <div className="w-28 flex items-center justify-end gap-3">
-                      {t.state === "Executed" ? (
-                        <span className="text-green-400 text-sm font-semibold">Executed</span>
-                      ) : t.state === "Approved" && parseInt(t.approvals.split("/")[0]) === approvalsRequired ? (
-                        <button
-                          className="px-2 py-1 rounded-md bg-green-400 text-black text-sm font-semibold hover:bg-green-600"
-                          onClick={() => setModal({ open: true, txId: t.id, action: "execute" })}
-                        >
-                          Execute
-                        </button>
-                      ) : t.state === "Approved" ? (
-                        <button
-                          className="px-3 py-1 rounded-md bg-red-400 text-black text-sm font-semibold hover:bg-red-500"
-                          onClick={() => setModal({ open: true, txId: t.id, action: "revoke" })}
-                        >
-                          Revoke
-                        </button>
-                      ) : (
-                        <button
-                          className="px-2 py-1 rounded-md bg-green-400 text-black text-sm font-semibold hover:bg-green-500"
-                          onClick={() => setModal({ open: true, txId: t.id, action: "approve" })}
-                        >
-                          Approve
-                        </button>
-                      )}
-                    </div>
-
+              {txs.length === 0 ? (
+                <div className="text-center text-gray-400 py-8">
+                  No transactions yet. Create a transaction first.
+                </div>
+              ) : (
+                <>
+                  {/* Table header (approvals/value/to/data/states) */}
+                  <div className="hidden md:grid grid-cols-5 gap-5 text-gray-400 text-sm mb-3">
+                    <div className="ml-[-10]">Approvals</div>
+                    <div className="ml-0">Value</div>
+                    <div className="ml-4">To</div>
+                    <div>Data</div>
+                    <div>States</div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Transactions list */}
+                  <div className="space-y-3">
+                      {txs.map((t) => (
+                        <div key={t.id} onClick={() => onTransactionClick(t.id)} className="cursor-pointer bg-black border border-neutral-800 rounded-md p-3 flex items-center gap-3">
+                        <div className="w-18 text-sm text-center text-gray-300">{t.approvals}</div>
+                        <div className="w-17  text-center text-sm">{t.value}</div>
+                        <div className="  text-sm ">{`${t.destination.slice(0,5)}...${t.destination.slice(-5)}`}</div>
+                        <div className="w-12 text-center text-sm">{t.data}</div>
+                        <div className="w-28 flex items-center justify-end gap-3">
+                          {t.state === "Executed" ? (
+                            <span className="text-green-400 text-sm font-semibold">Executed</span>
+                          ) : t.state === "Approved" && parseInt(t.approvals.split("/")[0]) === approvalsRequired ? (
+                            <button
+                              className="px-2 py-1 rounded-md bg-green-400 text-black text-sm font-semibold hover:bg-green-600"
+                              onClick={() => setModal({ open: true, txId: t.id, action: "execute" })}
+                            >
+                              Execute
+                            </button>
+                          ) : t.state === "Approved" ? (
+                            <button
+                              className="px-3 py-1 rounded-md bg-red-400 text-black text-sm font-semibold hover:bg-red-500"
+                              onClick={() => setModal({ open: true, txId: t.id, action: "revoke" })}
+                            >
+                              Revoke
+                            </button>
+                          ) : (
+                            <button
+                              className="px-2 py-1 rounded-md bg-green-400 text-black text-sm font-semibold hover:bg-green-500"
+                              onClick={() => setModal({ open: true, txId: t.id, action: "approve" })}
+                            >
+                              Approve
+                            </button>
+                          )}
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -408,6 +531,14 @@ export default function WalletPage() {
         }}
         title={modal.action === "approve" ? "Approve Transaction" : modal.action === "revoke" ? "Revoke Approval" : "Execute Transaction"}
         body={`Are you sure you want to ${modal.action} this transaction?`}
+      />
+
+      <ActionModal
+        open={depositSuccessModal}
+        onClose={() => setDepositSuccessModal(false)}
+        onConfirm={() => setDepositSuccessModal(false)}
+        title="Deposit Successful"
+        body={`Successfully deposited ${depositedAmount} ETH to the wallet.`}
       />
 
     </div>

@@ -31,14 +31,14 @@ export default function TransactionDetails() {
 
     // fetch transaction on mount / when params change
     useEffect(() => {
-        // if (!transactionId || !walletAddress) return;
+        if (!transactionId || !walletAddress) return;
 
         const fetchTx = async () => {
             setLoading(true);
             setError(null);
             try {
                 const res = await axios.get("http://localhost:5000/api/transactions", {
-                    params: { transactionId: Number(1), walletAddress: "0xa16E02E87b7454126E5E10d957A927A7F5B5d2be" }, // ADDED
+                    params: { transactionId: Number(transactionId), walletAddress }, // use actual params
                 });
                 // expect the API to return a single transaction object in res.data
                 console.log(res.data[0]);

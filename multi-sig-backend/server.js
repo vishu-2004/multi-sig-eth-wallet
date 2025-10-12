@@ -18,7 +18,7 @@ const app = express();
 let provider;
 
 if (process.env.PROD === "false") {
-    provider = new ethers.WebSocketProvider("http://localhost:8545");
+    provider = new ethers.WebSocketProvider("http://127.0.0.1:8545");
 } else {
     provider = new ethers.WebSocketProvider(process.env.SEPOLIA_RPC_URL);
 }

@@ -17,6 +17,10 @@ export async function getWriteWalletFactoryContract() {
     throw new Error("MetaMask provider not found");
   }
   const provider = new ethers.BrowserProvider((window as any).ethereum);
+const network = await provider.getNetwork();
+console.log("Connected chainId:", network.chainId.toString());
+console.log("Network name:", network.name);
+
   const signer = await provider.getSigner();
   return new ethers.Contract(CONTRACT_ADDRESS, FactorycontractAbi.abi, signer);
 }
