@@ -100,6 +100,7 @@ export default function UserWallets() {
               <div
                 key={address}
                 className="flex items-center justify-between bg-neutral-800 rounded-xl px-4 py-3"
+                onClick={()=>navigate(`/wallet-page/${address}`)}
               >
                 <div className="flex items-center gap-3">
                   <Blockies

@@ -31,6 +31,7 @@ const [walletBalance, setWalletBalance] = useState("0");
   const [owners,setOwners] = useState<string[]>([
     
   ]);
+  const [timelock,setTimeLock] = useState(0);
 
   const fetchTransactions = async (contract: any) => {
     try {
@@ -88,10 +89,10 @@ const [walletBalance, setWalletBalance] = useState("0");
       setWalletBalance(ethers.formatEther(balance)); // formatted in ETH
 
       const approvalsReq = await contract.minimumCount();
-      setApprovalsRequired(Number(approvalsReq));
+      setApprovalRequired(Number(approvalsReq));
       const timelock = await contract.timeLockDelay(); // assuming public uint timelock
       // store as number in state, key = walletAddress
-      setTimelock( Number(timelock));
+      setTimeLock( Number(timelock));
       const ownersList = await contract.getOwners();
       setOwners(ownersList);
 
@@ -127,7 +128,7 @@ const [walletBalance, setWalletBalance] = useState("0");
   const [depositedAmount, setDepositedAmount] = useState<string>("");
   const [depositSuccessModal, setDepositSuccessModal] = useState(false);
   const [approvedTxs,setApprovedTxs] = useState<string[]>();
-  const [timeLock,setTimeLock] = useState(0);
+  
 
 
   // helper: shorten address like 0xA2aE...b23C
@@ -296,7 +297,7 @@ const [walletBalance, setWalletBalance] = useState("0");
                     {/* copy + external (right side) */}
                     <div className=" flex items-center gap-3">
                       <button
-                        onClick={() => copyToClipboard(address || owners[0])}
+                        onClick={() => copyToClipboard(walletAddress||"0x")}
                         className="text-gray-400 hover:text-green-400"
                         title="Copy address"
                       >
@@ -419,7 +420,7 @@ const [walletBalance, setWalletBalance] = useState("0");
                   {/* Transactions list */}
                   <div className="space-y-3">
                       {txs.map((t) => (
-                        <div key={t.id} onClick={() => onTransactionClick(t.id)} className="cursor-pointer bg-black border border-neutral-800 rounded-md p-3 flex items-center gap-3">
+                        <div key={t.id} className="cursor-pointer bg-black border border-neutral-800 rounded-md p-3 flex items-center gap-3">
                         <div className="w-18 text-sm text-center text-gray-300">{t.approvals}</div>
                         <div className="w-17  text-center text-sm">{t.value}</div>
                         <div className="  text-sm ">{`${t.destination.slice(0,5)}...${t.destination.slice(-5)}`}</div>

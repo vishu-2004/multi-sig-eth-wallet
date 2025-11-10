@@ -1,18 +1,40 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import VaultXLogo from "../assets/Vaultx.png";
-import { useAccount } from "wagmi";
-import { useEffect } from "react";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ActionModal from "../components/ActionModal";
 
 export default function HomePage() {
   const { isConnected } = useAccount();   // get wallet connection state
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
   const navigate = useNavigate();
-  
+  const [showModal, setShowModal] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalBody, setModalBody] = useState("");
+  const [connectPressed,setConnectPressed] = useState(false);
+
+  const isProd = import.meta.env.VITE_PROD === "true";
+  const requiredChainId = isProd ? 11155111 : 31337; // Sepolia or Hardhat
+  const requiredNetworkName = isProd ? "Sepolia" : "Hardhat Local";
+useEffect(() => {
+  console.log("isConnected:", isConnected);
+  console.log("chain:", chainId);
+}, [isConnected, chainId]);
+
   useEffect(() => {
-    if (isConnected) {
-      navigate("/user-wallets");   // auto redirect if already connected
-    }
-  }, [isConnected, navigate]);
+  if (!isConnected) return; // wait for connection
+
+  if (chainId === requiredChainId) {
+    navigate("/user-wallets");
+  } else if (chainId) {
+    setModalTitle("Wrong Network");
+    setModalBody(`Please switch to ${requiredNetworkName} network to proceed.`);
+    setShowModal(true);
+  }
+}, [isConnected, chainId, navigate, requiredChainId]);
+
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-white p-6 lg:p-12">
@@ -72,7 +94,11 @@ export default function HomePage() {
                 <ConnectButton.Custom>
                   {({ openConnectModal }) => (
                     <button
-                      onClick={openConnectModal}
+                      onClick={()=>{
+                        openConnectModal();
+                        setConnectPressed(!connectPressed);
+
+                      }}
                       className="w-full py-3 px-5 rounded-lg font-semibold text-base text-black bg-green-400 hover:bg-green-500 transition-all duration-200 transform hover:scale-105 active:scale-95"
                     >
                       Connect wallet
@@ -84,6 +110,22 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Action Modal */}
+      <ActionModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+       onConfirm={async () => {
+    try {
+      await switchChain({ chainId: requiredChainId });
+      setShowModal(false);
+    } catch (err) {
+      console.error("Failed to switch chain:", err);
+    }
+  }}
+        title={modalTitle}
+        body={modalBody}
+      />
     </div>
   );
 }

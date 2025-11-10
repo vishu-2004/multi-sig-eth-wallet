@@ -22,11 +22,15 @@
 //   },
 // })
 
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { arbitrum, base, localhost, mainnet, optimism, polygon, sepolia } from 'wagmi/chains';
+import { sepolia, hardhat } from "wagmi/chains";
+import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+
+const isProd = import.meta.env.VITE_PROD === "true";
 
 export const wagmiConfig = getDefaultConfig({
-  appName: 'RainbowKit demo',
-  projectId: 'YOUR_PROJECT_ID',
-  chains: [mainnet, localhost, sepolia],
+  appName: "VaultX",
+  projectId: "YOUR_WALLETCONNECT_PROJECT_ID",
+  chains: isProd ? [sepolia] : [hardhat],
+  ssr: false,
 });
+

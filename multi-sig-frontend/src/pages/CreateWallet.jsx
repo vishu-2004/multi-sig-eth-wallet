@@ -27,7 +27,7 @@ const CreateWallet = () => {
       next[0] = { ...next[0], address: address || "" };
       return next;
     });
-  }, [address]);
+  }, []);
 
   // NEW: threshold (min confirmations) & timelock (seconds)
   const [threshold, setThreshold] = useState(1);
