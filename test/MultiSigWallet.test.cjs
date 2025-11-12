@@ -138,7 +138,7 @@ describe("MultiSigWallet", function () {
         await expect(
             wallet.submitTransaction(owners[1], ethers.parseEther("1"), "0x")
         ).to.emit(wallet, "TransactionSubmitted")
-            .withArgs(0);
+            .withArgs(0,owners[0]);
     });
 
     it("should be reverted if invalid adreess provided when submitting", async () => {
@@ -249,7 +249,7 @@ describe("MultiSigWallet", function () {
 
         await expect(walletWithSigner.executeTransaction(0))
             .to.emit(wallet, "TransactionExecuted")
-            .withArgs(0);
+            .withArgs(0,accounts[0].address);
     });
 
     it("should revert if wallet doesn't have enough balance", async () => {

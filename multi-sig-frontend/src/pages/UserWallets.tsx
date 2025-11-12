@@ -83,7 +83,7 @@ export default function UserWallets() {
         <h2 className="text-xl font-semibold text-white">Wallets</h2>
         <button
           onClick={createWallet}
-          className="px-4 py-2 rounded-md bg-green-400 text-black font-semibold hover:bg-green-500 transition"
+          className="px-4 py-2 rounded-2xl bg-green-400 text-black font-semibold hover:bg-green-500 transition"
         >
           Create Wallet
         </button>

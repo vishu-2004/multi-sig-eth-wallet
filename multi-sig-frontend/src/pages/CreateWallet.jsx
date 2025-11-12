@@ -118,7 +118,7 @@ const CreateWallet = () => {
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-black text-white p-6 md:p-12">
       {/* Left Section */}
-      <div className="flex-1 bg-neutral-900 rounded-xl p-6 md:p-10 shadow-lg">
+      <div className="flex-1 bg-neutral-900 rounded-2xl p-6 md:p-10 shadow-lg">
         {/* Header + Progress */}
         <h1 className="text-2xl md:text-3xl font-bold mb-6">
           Create new VaultX Wallet
@@ -157,7 +157,7 @@ const CreateWallet = () => {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-black border border-neutral-700 rounded-md p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full bg-black border border-neutral-700 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
                 placeholder="Enter wallet name"
               />
             </div>
@@ -166,7 +166,7 @@ const CreateWallet = () => {
             <div>
               <label className="block text-sm mb-2">Select Network</label>
               <select
-                className="w-full bg-black border border-neutral-700 rounded-md p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full bg-black border border-neutral-700 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
                 defaultValue="sepolia"
               >
                 <option value="sepolia">Sepolia</option>
@@ -174,13 +174,13 @@ const CreateWallet = () => {
             </div>
 
             {/* Actions */}
-            <div className="flex justify-between">
-              <button className="px-6 py-2 rounded-md border border-green-400 text-green-400 hover:bg-green-500 hover:text-black transition">
+            <div className="flex mt-8 justify-between">
+              <button className="px-6 py-2 rounded-xl border border-green-400 text-green-400 hover:bg-green-500 hover:text-black transition">
                 Cancel
               </button>
               <button
                 onClick={() => setStep(2)} // NEW
-                className="px-6 py-2 rounded-md bg-green-400 text-black font-semibold hover:bg-green-500 transition"
+                className="px-7 py-2 rounded-xl bg-green-400 text-black font-semibold hover:bg-green-500 transition"
               >
                 Next
               </button>
@@ -210,14 +210,14 @@ const CreateWallet = () => {
                 <div key={index} className="flex items-center gap-3 mb-4">
                   {/* Signer Name */}
                   <div className="flex-1">
-                    <label className="block text-sm mb-1">Signer name</label>
+                    <label className="block text-sm mb-2">Signer name</label>
                     <input
                       type="text"
                       value={signer.name}
                       onChange={(e) =>
                         handleSignerChange(index, "name", e.target.value)
                       }
-                      className="w-full bg-black border border-neutral-700 rounded-md p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                      className="w-full bg-black border border-neutral-700 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
                       placeholder={`Signer ${index + 1}`}
                       disabled={index === 0} // first signer is connected wallet
                     />
@@ -232,8 +232,8 @@ const CreateWallet = () => {
                   <div
                     className={`flex-1 ${index !== 0 ? "mb-0" : "mb-5 mr-8"}`}
                   >
-                    <label className="block text-sm mb-1">Signer</label>
-                    <div className="flex items-center gap-2 bg-black border border-neutral-700 rounded-md p-3">
+                    <label className="block text-sm mb-2">Signer</label>
+                    <div className="flex items-center gap-2 bg-black border border-neutral-700 rounded-xl p-3">
                       <Blockies
                         seed={(signer.address || "").toLowerCase()}
                         size={8}
@@ -288,7 +288,7 @@ const CreateWallet = () => {
                   <select
                     value={threshold}
                     onChange={(e) => setThreshold(Number(e.target.value))}
-                    className="bg-black border border-neutral-700 rounded-md p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                    className="bg-black border border-neutral-700 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
                   >
                     {Array.from(
                       { length: signers.length },
@@ -314,7 +314,7 @@ const CreateWallet = () => {
                   min={0}
                   value={timelock}
                   onChange={(e) => setTimelock(Number(e.target.value))}
-                  className="w-full bg-black border border-neutral-700 rounded-md p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                  className="w-full bg-black border border-neutral-700 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
                   placeholder="0 (no timelock)"
                 />
               </div>
@@ -324,13 +324,13 @@ const CreateWallet = () => {
             <div className="flex justify-between pt-2">
               <button
                 onClick={() => setStep(1)}
-                className="px-6 py-2 rounded-md border border-green-400 text-green-400 hover:bg-green-500 hover:text-black transition"
+                className="px-6 py-2 rounded-xl border border-green-400 text-green-400 hover:bg-green-500 hover:text-black transition"
               >
                 Back
               </button>
               <button
                 onClick={() => setStep(3)} // placeholder next
-                className="px-6 py-2 rounded-md bg-green-400 text-black font-semibold hover:bg-green-500 transition"
+                className="px-6 py-2 rounded-xl bg-green-400 text-black font-semibold hover:bg-green-500 transition"
               >
                 Next
               </button>
@@ -370,7 +370,7 @@ const CreateWallet = () => {
                   {signers.map((signer, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-2 bg-neutral-800 rounded-md px-3 py-2"
+                      className="flex items-center gap-2 bg-neutral-800 rounded-xl px-3 py-2"
                     >
                       <Blockies
                         seed={signer.address.toLowerCase()}
@@ -406,13 +406,13 @@ const CreateWallet = () => {
             <div className="flex justify-between pt-2">
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-2 rounded-md border border-green-400 text-green-400 hover:bg-green-500 hover:text-black transition"
+                className="px-6 py-2 rounded-xl border border-green-400 text-green-400 hover:bg-green-500 hover:text-black transition"
               >
                 Back
               </button>
               <button
                 onClick={handleCreateWallet}
-                className="px-6 py-2 rounded-md bg-green-400 text-black font-semibold hover:bg-green-500 transition"
+                className="px-6 py-2 rounded-xl bg-green-400 text-black font-semibold hover:bg-green-500 transition"
               >
                 Create wallet
               </button>
@@ -423,7 +423,7 @@ const CreateWallet = () => {
 
       {/* Right Section (Preview) — unchanged */}
       <div className="flex-1 mt-10 lg:mt-0 lg:ml-8">
-        <div className="bg-neutral-900 rounded-xl shadow-lg p-6 md:p-10 w-full max-w-md mx-auto">
+        <div className="bg-neutral-900 rounded-2xl shadow-lg p-6 md:p-10 w-full max-w-md mx-auto">
           <div className="flex items-center gap-2 mb-6 justify-center">
             <img
               src={VaultXLogo}

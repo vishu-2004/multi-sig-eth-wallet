@@ -9,3 +9,17 @@
 body {
   font-family: var(--font-sans);
 }
+/* Custom scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #111;
+  border-radius: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #22c55e;
+  border-radius: 8px;
+}

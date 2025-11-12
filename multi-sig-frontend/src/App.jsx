@@ -8,21 +8,20 @@ import WalletPage from "./pages/WalletPage";
 import TransactionDetails from "./pages/TransactionDetails";
 import UserProfile from "./pages/UserProfile";
 import UserWallets from "./pages/UserWallets";
-import NetworkGuard from "./components/NetworkGuard";
 function App() {
   return (
-    <NetworkGuard>
+    
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/create-wallet" element={<CreateWallet />} />
         <Route path="/wallet-page/:walletAddress" element={<WalletPage />} />
         <Route path="/transaction-details/:walletAddress/:transactionId" element={<TransactionDetails />} />
-        <Route path="/user-profile" element={<UserProfile />} />
+        <Route path="/user-profile/:userAddress" element={<UserProfile />} />
         <Route path="/user-wallets" element={<UserWallets />} />
       </Routes>
     </Router>
-    </NetworkGuard>
+    
   );
 }
 
