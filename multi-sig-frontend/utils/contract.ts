@@ -10,7 +10,7 @@ const SEPOLIA_RPC = import.meta.env.VITE_SEPOLIA_RPC_URL;
 
 const LOCAL_RPC = "http://127.0.0.1:8545";
 
-const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const CONTRACT_ADDRESS = "0x75CeF35f64768999A9a276F7f6721c9868F5e770";
 
 function getRpcProvider() {
   const rpcUrl = isProd ? SEPOLIA_RPC : LOCAL_RPC;

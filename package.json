@@ -6,7 +6,8 @@
     "hardhat-deploy": "^1.0.4"
   },
   "scripts": {
-        "deploy:local": "hardhat run scripts/deploy.cjs --network localhost"
+        "deploy:local": "hardhat run scripts/deploy.cjs --network localhost",
+        "deploy:sepolia": "hardhat run scripts/deploy.cjs --network sepolia"
 
   },
   "dependencies": {
