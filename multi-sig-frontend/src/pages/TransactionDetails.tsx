@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios"; // ADDED
 import Blockies from "react-blockies";
-import { useParams } from "react-router-dom"; // ADDED (expects react-router)
+import { useParams, useNavigate } from "react-router-dom"; // ADDED (expects react-router)
 import { formatEther } from "ethers";
 
 // Type matching your mongoose schema (excluded walletAddress per request)
@@ -23,6 +23,7 @@ type TxFromApi = {
 export default function TransactionDetails() {
     // get params passed to this page (transactionId, walletAddress)
     const { transactionId, walletAddress } = useParams<{ transactionId?: string; walletAddress?: string }>(); // ADDED
+      const navigate = useNavigate();
 
     // store all data in state (as requested)
     const [tx, setTx] = useState<TxFromApi | null>(null); // ADDED
@@ -68,6 +69,11 @@ export default function TransactionDetails() {
         return `${addr.slice(0, 6)}....${addr.slice(-6)}`;
     };
 
+    // helper: navigate to user profile
+    const handleAddressClick = (address: string) => {
+        navigate(`/user-profile/${address}`);
+    };
+
     if (loading) return <div className="p-6 bg-black text-white">Loading transaction...</div>;
     if (error) return <div className="p-6 bg-black text-white">Error: {error}</div>;
     if (!tx) return <div className="p-6 bg-black text-white">No transaction found</div>;
@@ -94,7 +100,7 @@ export default function TransactionDetails() {
 
                                 <Blockies seed={tx.destination.toLowerCase()} size={8} scale={3} className="rounded-full" /> {/* ADDED */}
                                 <div>
-                                    <div className="text-sm font-mono">{tx.destination}</div>
+                                    <div className="text-sm font-mono cursor-pointer hover:text-green-400" onClick={() => handleAddressClick(tx.destination)}>{tx.destination}</div>
 
                                 </div>
                             </div>
@@ -119,7 +125,7 @@ export default function TransactionDetails() {
                             <div className="text-sm text-gray-400 mb-1">Submitted By</div>
                             <div className="flex items-center gap-3">
                                 <Blockies seed={tx.submittedBy.toLowerCase()} size={8} scale={3} className="rounded-full" /> {/* ADDED */}
-                                <div className="text-sm font-mono">{tx.submittedBy}</div>
+                                <div className="text-sm font-mono cursor-pointer hover:text-green-400" onClick={() => handleAddressClick(tx.submittedBy)}>{tx.submittedBy}</div>
                             </div>
                         </div>
 
@@ -149,7 +155,7 @@ export default function TransactionDetails() {
                                     tx.approvedBy.map((addr) => (
                                         <div key={addr} className="flex items-center gap-3 bg-neutral-900 rounded-md px-3 py-2">
                                             <Blockies seed={addr.toLowerCase()} size={6} scale={3} className="rounded-full" /> {/* ADDED */}
-                                            <div className="text-sm font-mono">{addr}</div>
+                                            <div className="text-sm font-mono cursor-pointer hover:text-green-400" onClick={() => handleAddressClick(addr)}>{addr}</div>
                                         </div>
                                     ))
                                 ) : (

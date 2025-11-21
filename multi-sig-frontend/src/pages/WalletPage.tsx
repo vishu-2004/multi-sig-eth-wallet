@@ -9,6 +9,7 @@ import ActionModal from "../components/ActionModal";
 import { useParams, useNavigate } from "react-router";
 import { getWalletContract } from "../../utils/contract";
 import { ethers } from "ethers";
+import axios from "axios";
 
 type Tx = {
   id: string;
@@ -32,6 +33,17 @@ export default function WalletPage() {
 
   ]);
   const [timelock, setTimeLock] = useState(0);
+
+
+ // ⭐ Clean helper (CHANGE: auto-normalize timestamps)
+const toMs = (ts:number) => (ts > 1e12 ? ts : ts * 1000);
+
+const diffSeconds = (a:number, b:number) => {
+  const msA = toMs(a); // CHANGE
+  const msB = toMs(b); // CHANGE
+  return Math.abs(msA - msB) / 1000;
+};
+
 
   const fetchTransactions = async (contract: any) => {
     try {
@@ -65,6 +77,19 @@ export default function WalletPage() {
       console.error("Error fetching transactions:", err);
     }
   };
+   const fetchTx = async (transactionId:string) => {
+              
+              try {
+                  const res = await axios.get("http://localhost:5000/api/transactions", {
+                      params: { transactionId: Number(transactionId), walletAddress }, // use actual params
+                  });
+                  // expect the API to return a single transaction object in res.data
+                  console.log(res.data[0]);
+                  return res.data[0];
+              } catch (err: any) {
+                  console.error(err?.message || "Failed to fetch transaction");
+              } 
+          };
 
   // Add navigation on transaction row click
   const onTransactionClick = (txId: string) => {
@@ -180,8 +205,25 @@ export default function WalletPage() {
     setIsLoading(false);
   };
 
+  const timelockPassed = async (txId:string)=>{
+    const trx = await fetchTx(txId);
+    const submitUnix = trx.submittedAt;
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    const diffsec = diffSeconds(submitUnix,nowSec)
+    if(diffsec > timelock){
+      return true;
+    }
+    return false;
+  }
+
   const executeTransaction = async (txId: string) => {
     if (!walletContract) return;
+    if(!timelockPassed(txId)){
+      const errorMessage =  "TimeLock period has not elapsed. Try again later.";
+      setErrorModal({ open: true, message: errorMessage });
+      
+    }
     setIsLoading(true);
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -359,17 +401,17 @@ export default function WalletPage() {
               <div className="col-span-1">
                 <div className="bg-neutral-900 rounded-xl p-4 h-full flex flex-col">
 
-                  <div className="text-sm text-gray-400 mb-5">Wallet Balance</div>
-                  <div className="text-2xl mt-6 md:text-3xl font-bold text-green-400">{walletBalance ? `${walletBalance}` : "0.000"}
+                  <div className="text-lg text-gray-400 mb-4">Wallet Balance</div>
+                  <div className="text-3xl mt-6 md:text-4xl font-bold text-green-400">{walletBalance ? `${walletBalance}` : "0.000"}
 
                   </div>
-                  <div className="mt-8 mb-4.5 flex gap-2">
+                  <div className="mt-8 mb-4.5 flex gap-3">
                     <input
                       type="text"
-                      placeholder="  value in ETH"
+                      placeholder="value in ETH"
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
-                      className="flex-1 bg-black border border-neutral-800 rounded-xl pl-1 py-2 text-white placeholder:text-gray-500"
+                      className="flex-1 md:w-48 bg-black border border-neutral-800 rounded-xl pl-3   py-2 text-white placeholder:text-gray-500"
                     />
                     <button onClick={handleDeposit} className="px-3 rounded-xl border border-neutral-700 text-green-400 hover:bg-green-400 hover:text-black transition">
                       Deposit
@@ -399,7 +441,7 @@ export default function WalletPage() {
                     placeholder="value in ETH"
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    className="w-full bg-black border border-neutral-800 rounded-xl px-3 py-3 text-white mt-2 placeholder:text-gray-500"
+                    className="w-full bg-black border border-neutral-800 rounded-xl px-5 py-3 text-white  mt-2 placeholder:text-gray-500"
                   />
                 </div>
 

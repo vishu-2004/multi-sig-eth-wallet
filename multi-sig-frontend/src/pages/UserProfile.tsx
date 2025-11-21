@@ -12,20 +12,31 @@ interface UserActivity {
 
 export default function UserProfile() {
       const { userAddress } = useParams<{ userAddress: string }>();
-    
+
     const [activities, setActivities] = useState<UserActivity[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchActivity = async () => {
             try {
                 const res = await fetch(`http://localhost:5000/api/getUserActivity?userAddress=${userAddress}`);
-                const data: UserActivity[] = await res.json();
+                const data = await res.json();
                 console.log(data);
 
-                setActivities(data);
+                if (data.error) {
+                    setError(data.error);
+                    setActivities([]);
+                } else if (Array.isArray(data)) {
+                    setActivities(data);
+                } else {
+                    setError("Unexpected response format");
+                    setActivities([]);
+                }
             } catch (err) {
                 console.error("Error fetching activities:", err);
+                setError("Failed to fetch user activity");
+                setActivities([]);
             } finally {
                 setLoading(false);
             }
@@ -48,7 +59,7 @@ export default function UserProfile() {
 
             {/* User Address Section */}
             {userAddress && (
-                <div className="inline-flex items-center gap-3 bg-green-400 rounded-4xl px-4 py-2 mb-10">
+                <div className="inline-flex items-center gap-3 bg-green-400 rounded-4xl px-4 py-2 mb-10 mt-10">
                     <Blockies
                         seed={userAddress.toLowerCase()}
                         size={10}
@@ -58,13 +69,18 @@ export default function UserProfile() {
                     <span className="font-semibold font-mono text-black">{userAddress}</span>
                 </div>
             )}
-
+<div className="flex-1">
             {/* Activities Section */}
-            <h2 className="text-xl font-semibold mb-4 mr-130 text-white">User Activity</h2>
+<h2 className="text-xl font-semibold mb-5 **w-full text-left** text-white">
+  User Activity
+</h2>
+
 
             <div className="w-full max-w-2xl bg-neutral-900 rounded-2xl p-4 space-y-3">
                 {loading ? (
                     <p className="text-center text-gray-400">Loading activities...</p>
+                ) : error ? (
+                    <p className="text-center text-gray-400">{error}</p>
                 ) : activities.length === 0 ? (
                     <p className="text-center text-gray-400">No activity found</p>
                 ) : (
@@ -82,12 +98,13 @@ export default function UserProfile() {
                                     Tx ID: TRX-{act.transactionId}
                                 </span>
                             </div>
-                            <div className="text-xs text-gray-400">
+                            <div className="text-xs ml-9 mt-2 text-gray-400">
                                 {formatTimestamp(act.timestamp)}
                             </div>
                         </div>
                     ))
                 )}
+            </div>
             </div>
         </div>
     );

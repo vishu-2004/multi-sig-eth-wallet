@@ -17,6 +17,8 @@ const CreateWallet = () => {
   const [isLoading,setIsLoading]  = useState(false);
   const [isModalOpen,setIsModalOpen] = useState(false);
   const [walletAddress,setWalletAddress] = useState("0x");
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+    const [errorModal, setErrorModal] = useState({ open: false, message: "" });
 
   // NEW: signers state (first signer is the connected wallet)
 
@@ -79,8 +81,9 @@ const CreateWallet = () => {
       } else {
         console.error("WalletCreated event not found");
       }
-    } catch (error) {
-      console.error("Error creating wallet:", error);
+    } catch (err) {
+      const errorMessage = err?.reason || err?.message || "Something went wrong";
+      setErrorModal({ open: true, message: errorMessage });
     }finally{
       setIsLoading(false);
     }
@@ -175,7 +178,7 @@ const CreateWallet = () => {
 
             {/* Actions */}
             <div className="flex mt-8 justify-between">
-              <button className="px-6 py-2 rounded-xl border border-green-400 text-green-400 hover:bg-green-500 hover:text-black transition">
+              <button className="px-6 py-2 rounded-xl border border-green-400 text-green-400 hover:bg-green-500 hover:text-black transition" onClick={()=>navigate('/user-wallets')}>
                 Cancel
               </button>
               <button
@@ -498,11 +501,18 @@ const CreateWallet = () => {
                 setIsModalOpen(false);
                 navigate(`/wallet-page/${walletAddress}`);
 
-                
+
               }}
               title="Success"
               body="Wallet created successfully!"
             />
+       <ActionModal
+        open={errorModal.open}
+        onClose={() => setErrorModal({ open: false, message: "" })}
+        title="Error"
+        body=""
+        errorMessage={errorModal.message}
+      />
     </div>
     
   );

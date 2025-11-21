@@ -7,8 +7,7 @@ import { ethers } from 'ethers';
 import { createRequire } from 'module';
 import listenToFactoryEvents from './listeners/walletFactoryListener.js';
 import bootstrapWalletListeners from './utils/bootstrapListener.js';
-
-// Create require function for JSON imports
+ 
 const require = createRequire(import.meta.url);
 const factoryABI = require('./abi/MultiSigFactory.json');
 
@@ -23,13 +22,9 @@ if (process.env.PROD === "false") {
     provider = new ethers.WebSocketProvider(process.env.SEPOLIA_RPC_URL);
 }
 
-// // Debug ABI
-// console.log("=== ABI DEBUG INFO ===");
-const abiToUse = factoryABI.abi || factoryABI;
-// console.log("ABI length:", abiToUse.length);
-// console.log("First few ABI entries:", abiToUse.slice(0, 3));
 
-// Create factory contract (moved outside try block)
+const abiToUse = factoryABI.abi || factoryABI;
+
 let factory;
 try {
     factory = new ethers.Contract(
