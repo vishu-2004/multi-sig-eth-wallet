@@ -1,35 +1,44 @@
 import { ethers } from "ethers";
 import FactorycontractAbi from "../abi/MultiSigFactory.json";
-import WalletcontractAbi from "../abi/MultiSigWallet.json"
+import WalletcontractAbi from "../abi/MultiSigWallet.json";
+import { getWalletClient } from '@wagmi/core';
+import { wagmiConfig } from "../src/provider";
+
+// 🔥 NEW: env-based network switch
+const isProd = import.meta.env.VITE_PROD === "true";
+const SEPOLIA_RPC = import.meta.env.VITE_SEPOLIA_RPC_URL;
+
+const LOCAL_RPC = "http://127.0.0.1:8545";
 
 const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
-// Contract for read-only calls
+function getRpcProvider() {
+  const rpcUrl = isProd ? SEPOLIA_RPC : LOCAL_RPC;
+  return new ethers.JsonRpcProvider(rpcUrl);
+}
+
+// Read-only factory contract
 export async function getReadWalletFactoryContract() {
-  // Point directly to your Hardhat node
-  const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+  const provider = getRpcProvider();          // ✅ UPDATED
   return new ethers.Contract(CONTRACT_ADDRESS, FactorycontractAbi.abi, provider);
 }
 
-// Contract with signer (write transactions only)
+// Write (Signer) - works for mobile & desktop
 export async function getWriteWalletFactoryContract() {
-  if (!(window as any).ethereum) {
-    throw new Error("MetaMask provider not found");
-  }
-  const provider = new ethers.BrowserProvider((window as any).ethereum);
-const network = await provider.getNetwork();
-console.log("Connected chainId:", network.chainId.toString());
-console.log("Network name:", network.name);
+  const client = await getWalletClient(wagmiConfig);
+  if (!client) throw new Error("Wallet not connected");
 
+  const provider = new ethers.BrowserProvider(client);  // Uses wallet provider (not RPC)
   const signer = await provider.getSigner();
+
   return new ethers.Contract(CONTRACT_ADDRESS, FactorycontractAbi.abi, signer);
 }
 
 export async function getWalletContract(walletAddress: string) {
-  if (!(window as any).ethereum) {
-    throw new Error("MetaMask provider not found");
-  }
-  const provider = new ethers.BrowserProvider((window as any).ethereum);
+  const client = await getWalletClient(wagmiConfig);
+  if (!client) throw new Error("Wallet not connected");
+
+  const provider = new ethers.BrowserProvider(client);
   const signer = await provider.getSigner();
 
   return new ethers.Contract(walletAddress, WalletcontractAbi.abi, signer);

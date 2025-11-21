@@ -316,7 +316,7 @@ const diffSeconds = (a:number, b:number) => {
       <div className="flex mb-6 mr-18 justify-center">
         <div className="relative inline-flex">
 
-          <span className="bg-neutral-900 text-center font-semibold rounded-r-none text-sm text-white rounded-4xl pt-2.5 px-4 pr-23 py-2.5">{balance ? `${parseFloat(formatEther(balance.value)).toFixed(3)}` : "7.077"} ETH</span>
+          <span className="bg-neutral-900 text-center font-semibold rounded-r-none text-sm text-white rounded-4xl pt-2.5 px-4 pr-23 py-2.5">{balance ? `${parseFloat(formatEther(balance.value)).toFixed(3)}` : "0"} ETH</span>
 
           <div className="bg-green-400 absolute left-25 gap-3 items-center inline-flex rounded-4xl px-4 py-1">
             <span className=" text-black text-sm font-mono font-semibold ">{compactAddress2}</span>

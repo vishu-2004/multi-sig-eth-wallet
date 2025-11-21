@@ -28,8 +28,8 @@ import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 const isProd = import.meta.env.VITE_PROD === "true";
 
 export const wagmiConfig = getDefaultConfig({
-  appName: "VaultX",
-  projectId: "YOUR_WALLETCONNECT_PROJECT_ID",
+  appName: "MultiSig Wallet",
+  projectId: "dc439a552b67690cd2a10643d0e50a50",
   chains: isProd ? [sepolia] : [hardhat],
   ssr: false,
 });
