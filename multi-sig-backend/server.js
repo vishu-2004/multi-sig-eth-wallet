@@ -15,9 +15,9 @@ dotenv.config();
 
 const app = express();
 let provider;
-
+console.log(process.env.SEPOLIA_RPC_URL)
 if (process.env.PROD === "false") {
-    provider = new ethers.WebSocketProvider("http://127.0.0.1:8545");
+    provider = new ethers.WebSocketProvider(process.env.SEPOLIA_RPC_URL);
 } else {
     provider = new ethers.WebSocketProvider(process.env.SEPOLIA_RPC_URL);
 }
