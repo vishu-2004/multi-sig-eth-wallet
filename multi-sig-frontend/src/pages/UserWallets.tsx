@@ -3,41 +3,43 @@ import { useNavigate, useParams } from "react-router-dom";
 import Blockies from "react-blockies";
 import { useAccount, useBalance } from "wagmi";
 import { formatEther } from "viem";
-import { getReadWalletFactoryContract } from "../../utils/contract";
+import { readWalletFactory } from "../../utils/contract";
 
 
 
 export default function UserWallets() {
-  
+
 
   const { address: connectedAddress } = useAccount();
-  const { data: balance } = useBalance({ address: connectedAddress });
+  const { data: balance } = useBalance({
+    address: connectedAddress ?? undefined,
+  });
   const navigate = useNavigate();
 
-  const [wallets, setWallets] = useState<string[]>(["0x742d35Cc8C5f57a0C99C5B2E7C9F7e8B4A5D6F3E",]);
+  const [wallets, setWallets] = useState<string[]>([]);
 
   useEffect(() => {
-  const fetchWallets = async () => {
-    const factoryContract = await getReadWalletFactoryContract();
+    const fetchWallets = async () => {
+      if (!connectedAddress) return;
+      const count = await readWalletFactory('getUserWalletCount', [connectedAddress]);
 
-    // 1️⃣ get the count
-    const count = await factoryContract.getUserWalletCount(connectedAddress);
+      ;
 
-    const wallets: string[] = [];
-    // 2️⃣ fetch each wallet address using the mapping getter
-    for (let i = 0; i < Number(count); i++) {
-      const walletAddress = await factoryContract.userWallets(connectedAddress, i);
-      wallets.push(walletAddress);
-    }
 
-    console.log(wallets);
-    setWallets(wallets);
-  };
+      const wallets: string[] = [];
+      // 2️⃣ fetch each wallet address using the mapping getter
+      for (let i = 0; i < Number(count); i++) {
+        const walletAddress = await readWalletFactory('userWallets', [connectedAddress, i]) as string;
+        wallets.push(walletAddress);
+      }
 
-  if (connectedAddress) {
+      console.log(wallets);
+      setWallets(wallets);
+    };
+
+    if (!connectedAddress) return; // 🔥 stop early, avoids invalid RPCs
     fetchWallets();
-  }
-}, [connectedAddress]);
+  }, [connectedAddress]);
 
 
   const shorten = (addr?: string) => {
@@ -45,7 +47,7 @@ export default function UserWallets() {
     return `${addr.slice(0, 6)}....${addr.slice(-6)}`;
   };
 
-  
+
 
   // UPDATED: always set label to Friendly Sepolia Wallet
   const createWallet = () => {
@@ -100,7 +102,7 @@ export default function UserWallets() {
               <div
                 key={address}
                 className="flex items-center justify-between bg-neutral-800 rounded-xl px-4 py-3"
-                onClick={()=>navigate(`/wallet-page/${address}`)}
+                onClick={() => navigate(`/wallet-page/${address}`)}
               >
                 <div className="flex items-center gap-3">
                   <Blockies
@@ -114,7 +116,7 @@ export default function UserWallets() {
                     <span className="font-semibold text-white">
                       Friendly Sepolia Wallet
                     </span>
-                    
+
                     <span className="font-mono mt-0.5 text-gray-300">{address}</span>
                   </div>
                 </div>

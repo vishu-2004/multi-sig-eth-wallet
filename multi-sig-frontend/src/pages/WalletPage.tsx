@@ -7,9 +7,12 @@ import { formatEther } from "viem";
 import { MdOutlineVerified } from "react-icons/md";
 import ActionModal from "../components/ActionModal";
 import { useParams, useNavigate } from "react-router";
-import { getWalletContract } from "../../utils/contract";
+import { writeToWallet,readFromWallet,waitForTx } from "../../utils/contract";
 import { ethers } from "ethers";
 import axios from "axios";
+import { sendTransaction } from '@wagmi/core';
+import { parseEther } from 'viem';
+import { wagmiConfig } from "../provider";
 
 type Tx = {
   id: string;
@@ -22,18 +25,35 @@ type Tx = {
 
 export default function WalletPage() {
   const { address, isConnected } = useAccount(); // ✅ wagmi address
-  const { data: balance } = useBalance({ address });
-  const { walletAddress } = useParams();
+const { data: balance, refetch:refetchBalance } = useBalance({
+   address: address ?? undefined, 
+ });  
+ const walletAddress = useParams().walletAddress as `0x${string}` | undefined;
   const navigate = useNavigate();
   const [walletContract, setWalletContract] = useState<any>(null);
-  const [etherscanLink, setEtherScanLink] = useState("https://etherscan.io"); // example
-  const [walletBalance, setWalletBalance] = useState("0");
+  const [etherscanLink, setEtherScanLink] = useState("https://sepolia.etherscan.io"); // example
   // --- page state
-  const [owners, setOwners] = useState<string[]>([
-
-  ]);
+  const [owners, setOwners] = useState<string[]>([]);
   const [timelock, setTimeLock] = useState(0);
+  const [txs, setTxs] = useState<Tx[]>([]); // NEW
 
+  // form fields for new transaction
+  const [toAddress, setToAddress] = useState<string>("");
+  const [value, setValue] = useState<string>("");
+
+  // loading & notification
+  const [isLoading, setIsLoading] = useState<boolean>(false); // NEW - blocks UI when true
+  const [txModal, setTxModal] = useState<{ open: boolean; txId?: string }>({ open: false }); // NEW
+  const [approvalsRequired, setApprovalRequired] = useState(2);
+  const [modal, setModal] = useState<{ open: boolean; txId?: string; action?: "approve" | "revoke" | "execute"; errorMessage?: string }>({ open: false });
+  const [depositAmount, setDepositAmount] = useState<string>("");
+  const [depositedAmount, setDepositedAmount] = useState<string>("");
+  const [depositSuccessModal, setDepositSuccessModal] = useState(false);
+  const [approvedTxs, setApprovedTxs] = useState<string[]>();
+  const [errorModal, setErrorModal] = useState<{ open: boolean, message: string }>({ open: false, message: "" });
+  const { data: walletBalance, refetch:refetchWalletBalance } = useBalance({
+    address: walletAddress??undefined,
+  });
 
  // ⭐ Clean helper (CHANGE: auto-normalize timestamps)
 const toMs = (ts:number) => (ts > 1e12 ? ts : ts * 1000);
@@ -45,19 +65,19 @@ const diffSeconds = (a:number, b:number) => {
 };
 
 
-  const fetchTransactions = async (contract: any) => {
+  const fetchTransactions = async () => {
     try {
-      const count = Number(await contract.getTransactionCount());
-      const threshold = Number(await contract.getThreshold());
+      const count = Number(await readFromWallet(walletAddress as `0x${string}`, 'getTransactionCount', []));
+      const threshold = Number(await readFromWallet(walletAddress as `0x${string}`, 'minimumCount', []));
       setApprovalRequired(threshold);
       const txList: Tx[] = [];
       for (let i = 0; i < count; i++) {
-        const [destination, value, data, approvals, executed] = await contract.getTransactionDetails(i);
+        const transaction = await readFromWallet(walletAddress as `0x${string}`, 'getTransactionDetails', [i]) as any[];
+const [destination, value, data, approvals, executed] = transaction;
         let state: "Pending" | "Approved" | "Executed" = executed ? "Executed" : Number(approvals) >= threshold ? "Approved" : "Pending";
         if (isConnected) {
-          const provider = new ethers.BrowserProvider((window as any).ethereum);
-          const signer = await provider.getSigner();
-          const isAlreadyapproved = await contract.isApproved(i, signer.address);
+          
+          const isAlreadyapproved = await readFromWallet(walletAddress as `0x${string}`, 'isApproved', [i, address as `0x${string}`]);
           if (isAlreadyapproved && state === "Pending") {
             state = "Approved";
           }
@@ -100,29 +120,23 @@ const diffSeconds = (a:number, b:number) => {
   useEffect(() => {
     if (!walletAddress) return;
 
-    setEtherScanLink(`https://etherscan.io/address/${walletAddress}`);
+    setEtherScanLink(`https://sepolia.etherscan.io/address/${walletAddress}`);
 
     const initWallet = async () => {
       try {
-        // Assuming getWalletContract is async
-        const contract = await getWalletContract(walletAddress);
-        setWalletContract(contract);
+        
 
-        // Get wallet balance
-        const provider = new ethers.JsonRpcProvider(); // or your custom provider
-        const balance = await provider.getBalance(walletAddress);
-        setWalletBalance(ethers.formatEther(balance)); // formatted in ETH
+       
 
-        const approvalsReq = await contract.minimumCount();
+        const approvalsReq = await readFromWallet(walletAddress as `0x${string}`, 'minimumCount', []);
         setApprovalRequired(Number(approvalsReq));
-        const timelock = await contract.timeLockDelay(); // assuming public uint timelock
-        // store as number in state, key = walletAddress
+        const timelock = await readFromWallet(walletAddress as `0x${string}`, 'timeLockDelay', []);
         setTimeLock(Number(timelock));
-        const ownersList = await contract.getOwners();
+        const ownersList = await readFromWallet(walletAddress as `0x${string}`, 'getOwners', []) as string[];
         setOwners(ownersList);
 
         // Fetch transactions
-        await fetchTransactions(contract);
+        await fetchTransactions();
       } catch (err) {
         console.error("Error initializing wallet:", err);
       }
@@ -138,22 +152,7 @@ const diffSeconds = (a:number, b:number) => {
 
 
 
-  const [txs, setTxs] = useState<Tx[]>([]); // NEW
-
-  // form fields for new transaction
-  const [toAddress, setToAddress] = useState<string>("");
-  const [value, setValue] = useState<string>("");
-
-  // loading & notification
-  const [isLoading, setIsLoading] = useState<boolean>(false); // NEW - blocks UI when true
-  const [txModal, setTxModal] = useState<{ open: boolean; txId?: string }>({ open: false }); // NEW
-  const [approvalsRequired, setApprovalRequired] = useState(2);
-  const [modal, setModal] = useState<{ open: boolean; txId?: string; action?: "approve" | "revoke" | "execute"; errorMessage?: string }>({ open: false });
-  const [depositAmount, setDepositAmount] = useState<string>("");
-  const [depositedAmount, setDepositedAmount] = useState<string>("");
-  const [depositSuccessModal, setDepositSuccessModal] = useState(false);
-  const [approvedTxs, setApprovedTxs] = useState<string[]>();
-  const [errorModal, setErrorModal] = useState<{ open: boolean, message: string }>({ open: false, message: "" });
+  
 
 
 
@@ -165,37 +164,49 @@ const diffSeconds = (a:number, b:number) => {
 
   //MARK:app,re,exe
   const approveTransaction = async (txId: string) => {
-    if (!walletContract) return;
+  setIsLoading(true);
+  try {
+    const isAlreadyApproved = await readFromWallet(
+      walletAddress as `0x${string}`, 
+      'isApproved', 
+      [parseInt(txId), address as `0x${string}`]
+    );
 
-    setIsLoading(true);
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contractWithSigner = walletContract.connect(signer);
-      const isAlreadyApproved = await contractWithSigner.isApproved(txId, signer.address);
-
-      const tx = await contractWithSigner.approveTransaction(parseInt(txId));
-      await tx.wait();
-      await fetchTransactions(walletContract);
-      setModal({ open: false });
-    } catch (err: any) {
-      console.error("Error approving transaction:", err);
-      const errorMessage = err?.reason || err?.message || "Something went wrong";
-      setErrorModal({ open: true, message: errorMessage });
+    if (isAlreadyApproved) {
+      setErrorModal({ open: true, message: "Already approved this transaction" });
+      setIsLoading(false);
+      return;
     }
+
+    const hash = await writeToWallet(
+      walletAddress as `0x${string}`, 
+      'approveTransaction', 
+      [parseInt(txId)]
+    );
+    
+    await waitForTx(hash);
+    await refetchBalance();
+    await refetchWalletBalance();
+    await fetchTransactions();
+    setModal({ open: false });
+  } catch (err: any) {
+    console.error("Error approving transaction:", err);
+    const errorMessage = err?.reason || err?.message || "Something went wrong";
+    setErrorModal({ open: true, message: errorMessage });
+  } finally {
     setIsLoading(false);
-  };
+  }
+};
 
   const revokeTransaction = async (txId: string) => {
-    if (!walletContract) return;
     setIsLoading(true);
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contractWithSigner = walletContract.connect(signer);
-      const tx = await contractWithSigner.revokeApproval(parseInt(txId));
-      await tx.wait();
-      await fetchTransactions(walletContract);
+      
+      const tx = await writeToWallet(walletAddress as `0x${string}`, 'revokeApproval', [parseInt(txId)]);
+      await waitForTx(tx);
+       await refetchBalance();
+    await refetchWalletBalance();
+      await fetchTransactions();
       setModal({ open: false });
     } catch (err: any) {
       console.error("Error revoking approval:", err);
@@ -218,7 +229,6 @@ const diffSeconds = (a:number, b:number) => {
   }
 
   const executeTransaction = async (txId: string) => {
-    if (!walletContract) return;
     if(!timelockPassed(txId)){
       const errorMessage =  "TimeLock period has not elapsed. Try again later.";
       setErrorModal({ open: true, message: errorMessage });
@@ -226,14 +236,12 @@ const diffSeconds = (a:number, b:number) => {
     }
     setIsLoading(true);
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contractWithSigner = walletContract.connect(signer);
-      const tx = await contractWithSigner.executeTransaction(parseInt(txId));
-      await tx.wait();
-      await fetchTransactions(walletContract);
-      const balance = await provider.getBalance(walletAddress);
-      setWalletBalance(ethers.formatEther(balance)); // formatted in ETH
+      
+      const tx = await writeToWallet(walletAddress as `0x${string}`, 'executeTransaction', [parseInt(txId)]);
+      await waitForTx(tx);
+       await refetchBalance();
+    await refetchWalletBalance();
+      await fetchTransactions();
       setModal({ open: false });
     } catch (err: any) {
       console.error("Error executing transaction:", err);
@@ -246,17 +254,17 @@ const diffSeconds = (a:number, b:number) => {
 
   // submit tx
   const submitTx = async () => {
-    if (!toAddress || !value || !walletContract) return;
+    if (!toAddress || !value ) return;
     setIsLoading(true);
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contractWithSigner = walletContract.connect(signer);
-      const tx = await contractWithSigner.submitTransaction(toAddress, ethers.parseEther(value), "0x");
-      await tx.wait();
-      const count = Number(await walletContract.getTransactionCount());
+      
+      const tx = await writeToWallet(walletAddress as `0x${string}`, 'submitTransaction', [toAddress, ethers.parseEther(value), "0x"]);
+      await waitForTx(tx);
+      const count = Number(await readFromWallet(walletAddress as `0x${string}`, 'getTransactionCount', []));
       const txId = count - 1;
-      await fetchTransactions(walletContract);
+       await refetchBalance();
+    await refetchWalletBalance();
+      await fetchTransactions();
       setTxModal({ open: true, txId: txId.toString() });
       // clear form
       setToAddress("");
@@ -268,35 +276,35 @@ const diffSeconds = (a:number, b:number) => {
     }
     setIsLoading(false);
   };
-  const handleDeposit = async () => {
-    if (!walletAddress || !depositAmount) return;
 
-    try {
-      // You need a signer to send transactions
-      const provider = new ethers.BrowserProvider(window.ethereum); // MetaMask
-      const signer = await provider.getSigner();
 
-      // Create transaction
-      const tx = await signer.sendTransaction({
-        to: walletAddress, // contract address
-        value: ethers.parseEther(depositAmount) // convert ETH to wei
-      });
+const handleDeposit = async () => {
+  if (!walletAddress || !depositAmount) return;
+setIsLoading(true);
+  try {
+    const hash = await sendTransaction(wagmiConfig, {
+      to: walletAddress as `0x${string}`,
+      value: parseEther(depositAmount),
+    });
 
-      console.log("Transaction sent:", tx.hash);
+    console.log("Transaction sent:", hash);
 
-      // Wait for confirmation
-      const receipt = await tx.wait();
-      const balance = await provider.getBalance(walletAddress);
-      setWalletBalance(ethers.formatEther(balance));
-      setDepositedAmount(depositAmount);
-      setDepositSuccessModal(true);
-      setDepositAmount("");
-    } catch (err: any) {
-      console.error("Error sending Ether:", err);
-      const errorMessage = err?.reason || err?.message || "Something went wrong";
-      setErrorModal({ open: true, message: errorMessage });
-    }
+    await waitForTx(hash);
+     await refetchBalance();
+    await refetchWalletBalance();
+
+    setDepositedAmount(depositAmount);
+    setDepositSuccessModal(true);
+    setDepositAmount("");
+    
+  } catch (err: any) {
+    console.error("Error sending Ether:", err);
+    const errorMessage = err?.reason || err?.message || "Something went wrong";
+    setErrorModal({ open: true, message: errorMessage });
+  }finally {
+    setIsLoading(false);
   }
+};
 
   const closeModal = () => setTxModal({ open: false });
 
@@ -402,7 +410,7 @@ const diffSeconds = (a:number, b:number) => {
                 <div className="bg-neutral-900 rounded-xl p-4 h-full flex flex-col">
 
                   <div className="text-lg text-gray-400 mb-4">Wallet Balance</div>
-                  <div className="text-3xl mt-6 md:text-4xl font-bold text-green-400">{walletBalance ? `${walletBalance}` : "0.000"}
+                  <div className="text-3xl mt-6 md:text-4xl font-bold text-green-400">{walletBalance ? `${parseFloat(formatEther(walletBalance.value)).toFixed(3)}` : "0"} ETH
 
                   </div>
                   <div className="mt-8 mb-4.5 flex gap-3">

@@ -15,11 +15,11 @@ dotenv.config();
 
 const app = express();
 let provider;
-console.log(process.env.SEPOLIA_RPC_URL)
+console.log(process.env.SEPOLIA_WEBSOCKET_RPC_URL)
 if (process.env.PROD === "false") {
-    provider = new ethers.WebSocketProvider(process.env.SEPOLIA_RPC_URL);
+    provider = new ethers.WebSocketProvider("ws://127.0.0.1:8545");
 } else {
-    provider = new ethers.WebSocketProvider(process.env.SEPOLIA_RPC_URL);
+    provider = new ethers.WebSocketProvider(process.env.SEPOLIA_WEBSOCKET_RPC_URL);
 }
 
 
@@ -48,7 +48,7 @@ try {
 }
 
 // Now factory is accessible here
-bootstrapWalletListeners(provider); 
+bootstrapWalletListeners(factory,provider); 
 listenToFactoryEvents(factory, provider);
 
 app.use(cors());

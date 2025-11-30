@@ -3,10 +3,12 @@ import { useState, useEffect } from "react"; // NEW
 import Blockies from "react-blockies";
 import { useAccount } from "wagmi";
 import { FiTrash2 } from "react-icons/fi"; // feather-style trash icon
-import { getWriteWalletFactoryContract } from "../../utils/contract";
+import { writeWalletFactory } from "../../utils/contract";
 import { ethers } from "ethers";
 import ActionModal from "../components/ActionModal";
 import { useNavigate } from "react-router-dom";
+import { waitForTx } from "../../utils/contract";
+import FactorycontractAbi from "../../abi/MultiSigFactory.json";
 
 const CreateWallet = () => {
   // NEW: step state (1 → basics, 2 → signers, 3 → placeholder)
@@ -51,43 +53,67 @@ const CreateWallet = () => {
 
   const handleCreateWallet = async () => {
     setIsLoading(true);
-    try {
-      const factory = await getWriteWalletFactoryContract();
-      const owners = signers.map(s => s.address);
-      const tx = await factory.createWallet(owners, threshold, timelock);
-      const receipt = await tx.wait();
+     // 🔥 VALIDATION FIXES
+  const owners = signers.map(s => s.address).filter(Boolean);
 
-      const walletCreatedEvent = factory.interface.parseLog(
-        receipt.logs.find(log =>
-            log.topics[0] === factory.interface.getEvent('WalletCreated').topicHash
-        )
-    );
-
-    
-      if (walletCreatedEvent) {
-        const walletAddress = walletCreatedEvent.args.walletAddress;
-        setWalletAddress(walletAddress);
-        console.log("Created wallet address:", walletAddress);
-        // Save timelock in localStorage with walletAddress as key
-        localStorage.setItem(walletAddress, timelock.toString());
-        setIsModalOpen(true);
-        setSigners([
-    { name: "Signer 1", address: address || "" },
-  ])
-  setTimelock(0);
-  setThreshold(1);
-
-
-      } else {
-        console.error("WalletCreated event not found");
-      }
-    } catch (err) {
-      const errorMessage = err?.reason || err?.message || "Something went wrong";
-      setErrorModal({ open: true, message: errorMessage });
-    }finally{
-      setIsLoading(false);
-    }
+  if (owners.length === 0) {
+    setErrorModal({ open: true, message: "Please enter at least one valid owner address." });
+    setIsLoading(false);
+    return;
   }
+
+  if (threshold < 1 || threshold > owners.length) {
+    setErrorModal({ open: true, message: "Invalid threshold value." });
+    setIsLoading(false);
+    return;
+  }
+
+  if (!timelock && timelock !== 0) {
+    setErrorModal({ open: true, message: "Timelock is required." });
+    setIsLoading(false);
+    return;
+  }
+    try {
+  const hash = await writeWalletFactory('createWallet', [owners, threshold, timelock]);
+  const receipt = await waitForTx(hash);
+  
+  const iface = new ethers.Interface(FactorycontractAbi.abi);
+  const walletCreatedLog = receipt.logs.find(log => {
+    try {
+      const parsed = iface.parseLog({
+        topics: [...log.topics],
+        data: log.data,
+      });
+      return parsed?.name === 'WalletCreated';
+    } catch {
+      return false;
+    }
+  });
+
+  if (walletCreatedLog) {
+    const parsedLog = iface.parseLog({
+      topics: [...walletCreatedLog.topics],
+      data: walletCreatedLog.data,
+    });
+    const walletAddress = parsedLog.args.walletAddress;
+    
+    setWalletAddress(walletAddress);
+    console.log("Created wallet address:", walletAddress);
+    localStorage.setItem(walletAddress, timelock.toString());
+    setIsModalOpen(true);
+    setSigners([{ name: "Signer 1", address: address || "" }]);
+    setTimelock(0);
+    setThreshold(1);
+  } else {
+    console.error("WalletCreated event not found");
+  }
+} catch (err) {
+  const errorMessage = err?.reason || err?.message || "Something went wrong";
+  setErrorModal({ open: true, message: errorMessage });
+} finally {
+  setIsLoading(false);
+}
+  };
   const updateSignerName = (id, value) =>
     setSigners((prev) =>
       prev.map((s) => (s.id === id ? { ...s, name: value } : s))

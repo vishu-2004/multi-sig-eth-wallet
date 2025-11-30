@@ -1,199 +1,173 @@
 import { ethers } from "ethers";
 import Transaction from "../models/transaction.js";
 import userActivity from "../models/userActivity.js";
-import { createRequire } from 'module';
+import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
-const walletAbi = require('../abi/MultiSigWallet.json');
+const walletAbi = require("../abi/MultiSigWallet.json");
+
+// registry to prevent duplicate listeners
+const attachedWallets = new Set();
 
 export default function listenToWallet(walletAddress, provider) {
-    const walletContract = new ethers.Contract(
-        walletAddress,
-        walletAbi.abi||walletAbi,
-        provider
-    );
+  
+  if (attachedWallets.has(walletAddress)) {
+    console.log(`Listeners already attached for wallet: ${walletAddress}`);
+    return; // avoid duplicates
+  }
 
-    walletContract.on("TransactionSubmitted",async(tx_id, submitter)=>{
-        console.log(`Transaction submitted by ${submitter} with id ${tx_id}`);
+  attachedWallets.add(walletAddress);
+  console.log(`Attaching listeners for wallet: ${walletAddress}`);
 
-        try{
-            const tx = await walletContract.transactions(tx_id);
+  const walletContract = new ethers.Contract(
+    walletAddress,
+    walletAbi.abi || walletAbi,
+    provider
+  );
 
-            const newTx = new Transaction({
-                walletAddress: walletAddress,
-                transactionId: Number(tx_id),
-                destination: tx.destination,
-                value: Number(tx.value),
-                approvals: Number(tx.approvals),
-                executed: tx.executed,
-                data: tx.data,
-                submittedBy: submitter,
-                submittedAt: Math.floor(Date.now() / 1000) 
-            });
-
-            await newTx.save();
-            console.log("Transaction saved to DB ✅");
-
-        }catch(err){
-            console.log("Error occured in tr submission",err);
-        }
-
-        //track user activity
-        try{
-
-
-             const newActivity = new userActivity({
-            userAddress:submitter,
-            activityType: "Transaction Submitted",
-            timestamp:Math.floor(Date.now() / 1000),
-            transactionId:Number(tx_id),
-            walletAddress:walletAddress
-        })
-        await newActivity.save();
-        console.log("Submit activity tracked");
-        }catch(err){
-            console.log("Error occured in tr activity saving",err);
-        }
-       
-
-    })
-
-    walletContract.on("TransactionApproved",async(tx_id, approver)=>{
-        console.log(`Transaction approved by ${approver} with id ${tx_id}`);
-
-        try{
-            const tx = await walletContract.transactions(tx_id);
-
-            const updatedTx = await Transaction.findOneAndUpdate({
-                walletAddress:walletAddress,
-                transactionId: Number(tx_id)
-            },
-            {
-                $set:{
-                    approvals: Number(tx.approvals),
-                },
-                $addToSet:{
-                    approvedBy: approver
-                }
-            },
-            {new:true,upsert:true}
-        
-        )
-        if(updatedTx){
-            console.log("Transaction updated in DB ✅");
-        }else{
-            console.log("Transaction not found in DB");
-        }
-
-        }catch(err){
-            console.log("Error occured in tr approval",err);
-        }
-
-        //save activity
-        try{
-            const newActivity = new userActivity({
-            userAddress:approver,
-            activityType: "Transaction Approved",
-            timestamp:Math.floor(Date.now() / 1000),
-            transactionId:Number(tx_id),
-            walletAddress:walletAddress
-        })
-        await newActivity.save();
-        console.log("Approve activity tracked");
-        }catch(err){
-            console.log("Error occured in tr, approved activity saving",err);
-        }
-
-    })
-
-    walletContract.on("TransactionExecuted", async (tx_id, executer, event) => {
-        console.log(`Transaction executed by ${executer} with id ${tx_id}`);
-        const tx = await walletContract.transactions(tx_id);
-         const block = await provider.getBlock(event.blockNumber);
-    const executionTimestamp = block.timestamp;
+  // TransactionSubmitted
+  walletContract.on("TransactionSubmitted", async (tx_id, submitter) => {
+    console.log(`Transaction submitted by ${submitter} with id ${tx_id}`);
     try {
-        
+      const tx = await walletContract.transactions(tx_id);
 
-        const updatedTx = await Transaction.findOneAndUpdate(
-            {
-                walletAddress: walletAddress,
-                transactionId: Number(tx_id)
-            },
-            {
-                $set: {
-                    executed: true,
-                    executedBy: executer,
-                    executedAt: executionTimestamp
-                }
-            },
-            { new: true }
-        );
-
-        console.log("Updated Transaction after execution success:", updatedTx);
+      const newTx = new Transaction({
+        walletAddress: walletAddress,
+        transactionId: Number(tx_id),
+        destination: tx.destination,
+        value: Number(tx.value),
+        approvals: Number(tx.approvals),
+        executed: tx.executed,
+        data: tx.data,
+        submittedBy: submitter,
+        submittedAt: Math.floor(Date.now() / 1000),
+      });
+      await newTx.save();
+      console.log("Transaction saved to DB");
     } catch (err) {
-        console.log("Error occurred in tr execution:", err);
+      console.log("Error while saving submission:", err);
     }
 
-     //save activity
-        try{
-            const newActivity = new userActivity({
-            userAddress:executer,
-            activityType: "Transaction Executed",
-            timestamp:Number(executionTimestamp),
-            transactionId:Number(tx_id),
-            walletAddress:walletAddress
-        })
-        await newActivity.save();
-        console.log("Execution activity tracked");
-        }catch(err){
-            console.log("Error occured in tr, execute activity saving",err);
-        }
-});
+    try {
+      const newActivity = new userActivity({
+        userAddress: submitter,
+        activityType: "Transaction Submitted",
+        timestamp: Math.floor(Date.now() / 1000),
+        transactionId: Number(tx_id),
+        walletAddress: walletAddress,
+      });
+      await newActivity.save();
+    } catch (err) {
+      console.log("Error saving activity:", err);
+    }
+  });
 
-walletContract.on("ApprovalRevoked", async (tx_id, revoker) => {
-    console.log(`Transaction approval revoked by ${revoker} with id ${tx_id}`);
+  // TransactionApproved
+  walletContract.on("TransactionApproved", async (tx_id, approver) => {
+    console.log(`Transaction approved by ${approver} with id ${tx_id}`);
 
     try {
-        const tx = await walletContract.transactions(tx_id);
+      const tx = await walletContract.transactions(tx_id);
 
-        const updatedTx = await Transaction.findOneAndUpdate(
-            {
-                walletAddress: walletAddress,
-                transactionId: Number(tx_id)
-            },
-            {
-                $set: {
-                    approvals: Number(tx.approvals)
-                },
-                $pull: {
-                    approvedBy: revoker
-                }
-            },
-            { new: true }
-        );
-
-        console.log("Updated Transaction after revocation success:", updatedTx);
+      await Transaction.findOneAndUpdate(
+        {
+          walletAddress: walletAddress,
+          transactionId: Number(tx_id),
+        },
+        {
+          $set: { approvals: Number(tx.approvals) },
+          $addToSet: { approvedBy: approver },
+        },
+        { new: true, upsert: true }
+      );
     } catch (err) {
-        console.log("Error occurred in tr revocation:", err);
+      console.log("Error in approval update:", err);
     }
-     //save activity
-        try{
-            const newActivity = new userActivity({
-            userAddress:revoker,
-            activityType: "Transaction Revoked",
-            timestamp:Math.floor(Date.now() / 1000),
-            transactionId:Number(tx_id),
-            walletAddress:walletAddress
-        })
-        await newActivity.save();
-        console.log("revoke activity tracked");
-        }catch(err){
-            console.log("Error occured in tr, revoke activity saving",err);
-        }
-});
 
+    try {
+      await new userActivity({
+        userAddress: approver,
+        activityType: "Transaction Approved",
+        timestamp: Math.floor(Date.now() / 1000),
+        transactionId: Number(tx_id),
+        walletAddress: walletAddress,
+      }).save();
+    } catch (err) {
+      console.log("Error saving approval activity:", err);
+    }
+  });
 
-    
+  // TransactionExecuted
+  walletContract.on("TransactionExecuted", async (tx_id, executer, event) => {
+    console.log(`Transaction executed by ${executer} with id ${tx_id}`);
 
+    const block = await provider.getBlock(event.blockNumber);
+    const timestamp = block.timestamp;
 
+    try {
+      await Transaction.findOneAndUpdate(
+        {
+          walletAddress: walletAddress,
+          transactionId: Number(tx_id),
+        },
+        {
+          $set: {
+            executed: true,
+            executedBy: executer,
+            executedAt: timestamp,
+          },
+        },
+        { new: true }
+      );
+    } catch (err) {
+      console.log("Error in execution update:", err);
+    }
+
+    try {
+      await new userActivity({
+        userAddress: executer,
+        activityType: "Transaction Executed",
+        timestamp,
+        transactionId: Number(tx_id),
+        walletAddress: walletAddress,
+      }).save();
+    } catch (err) {
+      console.log("Error saving execution activity:", err);
+    }
+  });
+
+  // ApprovalRevoked
+  walletContract.on("ApprovalRevoked", async (tx_id, revoker) => {
+    console.log(`Approval revoked by ${revoker} with id ${tx_id}`);
+
+    try {
+      const tx = await walletContract.transactions(tx_id);
+
+      await Transaction.findOneAndUpdate(
+        {
+          walletAddress: walletAddress,
+          transactionId: Number(tx_id),
+        },
+        {
+          $set: { approvals: Number(tx.approvals) },
+          $pull: { approvedBy: revoker },
+        },
+        { new: true }
+      );
+    } catch (err) {
+      console.log("Error updating revocation:", err);
+    }
+
+    try {
+      await new userActivity({
+        userAddress: revoker,
+        activityType: "Transaction Revoked",
+        timestamp: Math.floor(Date.now() / 1000),
+        transactionId: Number(tx_id),
+        walletAddress: walletAddress,
+      }).save();
+    } catch (err) {
+      console.log("Error saving revoke activity:", err);
+    }
+  });
 }
