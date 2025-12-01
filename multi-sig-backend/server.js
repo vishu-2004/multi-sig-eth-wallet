@@ -33,15 +33,7 @@ try {
         provider
     );
     
-    // console.log("Contract created successfully");
-    // console.log("Interface exists:", !!factory.interface);
-    
-    // if (factory.interface && factory.interface.functions) {
-    //     console.log("Available functions:", Object.keys(factory.interface.functions));
-    // } else {
-    //     console.log("No interface.functions available");
-    //     console.log("Interface format fragments:", factory.interface.format());
-    // }
+   
 } catch (error) {
     console.error("Error creating contract:", error);
     process.exit(1);
