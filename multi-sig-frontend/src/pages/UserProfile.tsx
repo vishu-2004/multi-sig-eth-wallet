@@ -20,7 +20,7 @@ export default function UserProfile() {
     useEffect(() => {
         const fetchActivity = async () => {
             try {
-                const res = await fetch(`http://localhost:5000/api/getUserActivity?userAddress=${userAddress}`);
+                const res = await fetch(`https://multi-sig-eth-wallet.onrender.com/api/getUserActivity?userAddress=${userAddress}`);
                 const data = await res.json();
                 console.log(data);
 

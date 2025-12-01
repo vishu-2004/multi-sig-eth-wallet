@@ -3,7 +3,7 @@ import { wagmiConfig } from "../src/provider";
 import FactorycontractAbi from "../abi/MultiSigFactory.json";
 import WalletcontractAbi from "../abi/MultiSigWallet.json";
 
-const CONTRACT_ADDRESS = "0xCB29e0c67b0f5266E2ccB03b7a843a693afDa371";
+const CONTRACT_ADDRESS = "0xccCB8b84207300A4C5C0A7072E287fE11BB68533";
 
 export async function readWalletFactory(functionName: string, args: any[] = []) {
   return await readContract(wagmiConfig, {

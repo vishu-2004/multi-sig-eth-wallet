@@ -38,7 +38,7 @@ export default function TransactionDetails() {
             setLoading(true);
             setError(null);
             try {
-                const res = await axios.get("http://localhost:5000/api/transactions", {
+                const res = await axios.get("https://multi-sig-eth-wallet.onrender.com/api/transactions", {
                     params: { transactionId: Number(transactionId), walletAddress }, // use actual params
                 });
                 // expect the API to return a single transaction object in res.data

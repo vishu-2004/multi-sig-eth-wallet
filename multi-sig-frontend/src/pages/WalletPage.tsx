@@ -100,7 +100,7 @@ const [destination, value, data, approvals, executed] = transaction;
    const fetchTx = async (transactionId:string) => {
               
               try {
-                  const res = await axios.get("http://localhost:5000/api/transactions", {
+                  const res = await axios.get("https://multi-sig-eth-wallet.onrender.com/api/transactions", {
                       params: { transactionId: Number(transactionId), walletAddress }, // use actual params
                   });
                   // expect the API to return a single transaction object in res.data
