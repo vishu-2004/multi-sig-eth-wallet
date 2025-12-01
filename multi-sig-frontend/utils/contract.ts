@@ -22,7 +22,7 @@ export async function writeWalletFactory(functionName: string, args: any[]) {
     abi: FactorycontractAbi.abi,
     functionName,
     args,
-    gas: 500_000n
+    
   });
   
   return hash;
@@ -51,7 +51,7 @@ export async function writeToWallet(
     abi: WalletcontractAbi.abi,
     functionName,
     args,
-    gas: 500_000n
+   
   });
   
   return hash;
