@@ -37,7 +37,7 @@ const CreateWallet = () => {
   const [threshold, setThreshold] = useState(1);
   const [timelock, setTimelock] = useState(0);
   const [signers, setSigners] = useState([
-    { name: "Signer 1", address: address || "" },
+    { name: "Me", address: address || "" },
   ]);
 
   const formatAddress = (addr) => {
